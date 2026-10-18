@@ -171,6 +171,8 @@ General engines treat cross-script matching as a known weak spot. OpenSanctions 
 
 ## Deploy
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Artemkits/sanctions-screener)
+
 **Render (free, no credit card).** Sign in to [render.com](https://render.com) with GitHub, then go to **New → Blueprint** and pick this repository. `render.yaml` configures everything else. The free plan has 512 MB RAM and sleeps after 15 minutes idle, so it runs four lists: EU, UN, OFAC and PL MSWiA. The first request after a sleep takes about a minute.
 
 **Any Linux server** (Ubuntu 22.04+ / Debian 12+, about 1 GB RAM):
