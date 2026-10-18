@@ -20,4 +20,4 @@ RUN python -m app.update || true
 # build the search index once at image build time so the container starts in seconds
 RUN python -c "from app.matcher import get_index; get_index()" || true
 EXPOSE 7860
-CMD ["./start.sh"]
+CMD ["sh", "start.sh"]
