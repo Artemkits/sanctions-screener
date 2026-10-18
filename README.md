@@ -180,6 +180,22 @@ scripts/deploy_hf.sh <your-hf-username>
 
 The Space builds the `Dockerfile`, downloads the lists during the build and refreshes them on restart if they are older than 24 h.
 
+**Any Linux server** (Ubuntu 22.04+ / Debian 12+, about 1 GB RAM):
+
+```bash
+scripts/deploy_vps.sh <ssh-host>
+```
+
+The script runs these steps over SSH:
+
+1. Clones this repository into `/opt/sanctions-screener`.
+2. Installs a virtualenv.
+3. Downloads the lists.
+4. Prebuilds the index.
+5. Installs a systemd service on port 8090 (`deploy/sanctions-screener.service`) that refreshes the lists every 24 h.
+
+To update later, run the same command again.
+
 `render.yaml` is included as an alternative. Render's free plan works but is slow for this workload: 0.1 CPU, and the service sleeps after 15 minutes.
 
 ## Limitations

@@ -1,0 +1,17 @@
+[Unit]
+Description=Sanctions Screener (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/sanctions-screener
+Environment=DATA_DIR=/opt/sanctions-screener/data
+Environment=AUTO_REFRESH_HOURS=24
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/sanctions-screener/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8090 --proxy-headers
+Restart=always
+RestartSec=5
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target
