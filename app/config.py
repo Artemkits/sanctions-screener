@@ -39,13 +39,6 @@ SOURCES = {
         "info_url": "https://www.gov.uk/government/publications/the-uk-sanctions-list",
         "provider": "opensanctions",
     },
-    "UA": {
-        "label": "UA",
-        "name": "Ukraine NSDC State Register of Sanctions (via OpenSanctions)",
-        "url": "https://data.opensanctions.org/datasets/latest/ua_nsdc_sanctions/targets.simple.csv",
-        "info_url": "https://drs.nsdc.gov.ua/",
-        "provider": "opensanctions",
-    },
 }
 
 # Lists that can be switched off, e.g. ENABLED_SOURCES=EU,UN,OFAC,PL

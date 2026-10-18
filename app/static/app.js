@@ -12,7 +12,7 @@ const I18N = {
     f_name: "Imię i nazwisko / nazwa *", f_birth: "Data urodzenia", f_nat: "Obywatelstwo", f_type: "Typ",
     t_person: "osoba fizyczna", t_entity: "podmiot", t_any: "dowolny", check: "Sprawdź", checking: "Sprawdzanie…",
     intro_eyebrow: "Luka transliteracyjna", intro_h: "Jedno nazwisko, wiele zapisów",
-    intro_p: "Ta sama osoba figuruje w paszporcie, w prasie i na liście sankcyjnej pod różnymi zapisami łacińskimi. Narzędzie generuje warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w sześciu listach sankcyjnych: UE, ONZ, OFAC, polskiej MSWiA, brytyjskiej i ukraińskiej.",
+    intro_p: "Ta sama osoba figuruje w paszporcie, w prasie i na liście sankcyjnej pod różnymi zapisami łacińskimi. Narzędzie generuje warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w pięciu listach sankcyjnych: UE, ONZ, OFAC, polskiej MSWiA i brytyjskiej.",
     demo_h: "Scenariusze demonstracyjne", demo_exact: "Trafienie dokładne", demo_translit: "Tylko dzięki transliteracji",
     demo_translit_meta: "pisownia polska", demo_fp: "False positive", demo_by: "Cyrylica białoruska",
     map_h: "Mapa dopasowania", map_sub: "zapytanie → wariant, który dał trafienie → rekord na liście",
@@ -65,7 +65,7 @@ const I18N = {
     table_h: "Tablica transliteracji", table_sub: "generowana z kodu, który wykonuje wyszukiwanie · kilka wartości = zależność od pozycji litery",
     examples_h: "Przykłady", ctx_initial: "na początku słowa", ctx_middle: "po spółgłosce", ctx_after_vowel: "po samogłosce", ctx_before_soft: "przed е/и/ь",
     letter_not_in: "litera nie występuje w tym języku",
-    foot: "Dane: oficjalne listy UE (FSF), Rady Bezpieczeństwa ONZ i OFAC SDN; listy PL MSWiA, UK FCDO i UA RNBO przez OpenSanctions (CC BY-NC 4.0). Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
+    foot: "Dane: oficjalne listy UE (FSF), Rady Bezpieczeństwa ONZ i OFAC SDN; listy PL MSWiA i UK FCDO przez OpenSanctions (CC BY-NC 4.0). Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
     conflict_birth: "inna data urodzenia", conflict_nationality: "inne obywatelstwo", conflict_alias: "słaby alias",
     conflict_gender: "inna płeć", conflict_number: "inny numer w nazwie",
     f_gender: "Płeć", g_m: "mężczyzna", g_f: "kobieta", f_doc: "Nr dokumentu", g_inferred: "płeć wywnioskowana z nazwiska",
@@ -80,7 +80,7 @@ const I18N = {
     f_name: "Full name / entity name *", f_birth: "Date of birth", f_nat: "Nationality", f_type: "Type",
     t_person: "individual", t_entity: "entity", t_any: "any", check: "Screen", checking: "Screening…",
     intro_eyebrow: "The transliteration gap", intro_h: "One surname, many spellings",
-    intro_p: "The same person appears in a passport, in the press and on a sanctions list under different Latin spellings. The tool generates the variants using official transliteration systems and checks each one against six sanctions lists: EU, UN, OFAC, the Polish MSWiA list, the UK list and the Ukrainian NSDC register.",
+    intro_p: "The same person appears in a passport, in the press and on a sanctions list under different Latin spellings. The tool generates the variants using official transliteration systems and checks each one against five sanctions lists: EU, UN, OFAC, the Polish MSWiA list and the UK list.",
     demo_h: "Demo scenarios", demo_exact: "Exact match", demo_translit: "Found only through transliteration",
     demo_translit_meta: "Polish spelling", demo_fp: "False positive", demo_by: "Belarusian Cyrillic",
     map_h: "Match map", map_sub: "query → the variant that produced the hit → list record",
@@ -133,7 +133,7 @@ const I18N = {
     table_h: "Transliteration table", table_sub: "generated from the code that runs the search · several values = depends on the letter's position",
     examples_h: "Examples", ctx_initial: "word-initial", ctx_middle: "after a consonant", ctx_after_vowel: "after a vowel", ctx_before_soft: "before е/и/ь",
     letter_not_in: "letter not used in this language",
-    foot: "Data: official EU (FSF), UN Security Council and OFAC SDN lists; PL MSWiA, UK FCDO and UA NSDC lists via OpenSanctions (CC BY-NC 4.0). Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
+    foot: "Data: official EU (FSF), UN Security Council and OFAC SDN lists; PL MSWiA and UK FCDO lists via OpenSanctions (CC BY-NC 4.0). Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
     conflict_birth: "different date of birth", conflict_nationality: "different nationality", conflict_alias: "weak alias",
     conflict_gender: "different gender", conflict_number: "different number in name",
     f_gender: "Gender", g_m: "male", g_f: "female", f_doc: "Document no.", g_inferred: "gender inferred from the name",
@@ -149,9 +149,9 @@ const SYS = {
         BGN: "BGN/PCGN", POP: "common English", PL: "Polish (PWN)", DE: "German (Duden)", BY_PASS: "BY — passport",
         VAR: "phonetic variant", LATIN: "input spelling", LATIN_ALT: "alternative spelling", SKELETON: "phonetic skeleton", CYR: "original script (Cyrillic)" },
 };
-const LIST_LABEL = { pl: { EU: "UE", UN: "ONZ", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK", UA: "UA RNBO" },
-                     en: { EU: "EU", UN: "UN", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK", UA: "UA NSDC" } };
-const OPEN_SANCTIONS = ["PL", "UK", "UA"];
+const LIST_LABEL = { pl: { EU: "UE", UN: "ONZ", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK" },
+                     en: { EU: "EU", UN: "UN", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK" } };
+const OPEN_SANCTIONS = ["PL", "UK"];
 
 let lang = "pl";
 let last = null;          // last search response

@@ -9,7 +9,7 @@ HF="${HF:-hf}"
 TMP=$(mktemp -d)
 git archive HEAD | tar -x -C "$TMP"
 # Spaces read their configuration from a YAML header in README.md
-{ printf -- '---\ntitle: Sanctions Screener\ncolorFrom: blue\ncolorTo: gray\nsdk: docker\napp_port: 7860\npinned: false\nshort_description: Transliteration-aware sanctions screening (EU, UN, OFAC, PL, UK, UA)\n---\n\n'; cat "$TMP/README.md"; } > "$TMP/README.hf" && mv "$TMP/README.hf" "$TMP/README.md"
+{ printf -- '---\ntitle: Sanctions Screener\ncolorFrom: blue\ncolorTo: gray\nsdk: docker\napp_port: 7860\npinned: false\nshort_description: Transliteration-aware sanctions screening (EU, UN, OFAC, PL, UK)\n---\n\n'; cat "$TMP/README.md"; } > "$TMP/README.hf" && mv "$TMP/README.hf" "$TMP/README.md"
 "$HF" repos create "$USER/$SPACE" --type space --sdk docker --public --exist-ok
 "$HF" upload "$USER/$SPACE" "$TMP" . --repo-type space --commit-message "Deploy $(git rev-parse --short HEAD)"
 rm -rf "$TMP"

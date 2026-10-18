@@ -4,7 +4,7 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-12305b)
 ![License: MIT](https://img.shields.io/badge/license-MIT-12305b)
 
-Screens a person or company name against six sanctions lists: the official **EU**, **UN** and **OFAC** lists, plus the **Polish MSWiA** list, the **UK FCDO** list and the **Ukrainian NSDC** register. It handles the main source of missed hits and false alerts for clients from Ukraine, Russia and Belarus: **one name can be spelled many different ways in Latin script.**
+Screens a person or company name against five sanctions lists: the official **EU**, **UN** and **OFAC** lists, plus the **Polish MSWiA** list and the **UK FCDO** list. It handles the main source of missed hits and false alerts for clients from Ukraine, Russia and Belarus: **one name can be spelled many different ways in Latin script.**
 
 ![Demo](docs/demo.gif)
 
@@ -14,7 +14,7 @@ Screens a person or company name against six sanctions lists: the official **EU*
 
 A screener that only compares strings sees a different name each time. It either misses the hit or, with a loose threshold, raises alerts on half the customer base.
 
-This matters in Poland in particular. Polish documents and press use **Polish transcription** (*Ławrow*, *Szojgu*, *Kadyrow*, *Wołodin*), while the lists use English spellings. In the measurements below, a naive fuzzy matcher scores *Wiaczesław Wołodin* at **61**: below any reasonable alert threshold, so the hit is missed. Its best "match" is a company called *Citadel Holding*. This tool scores it at **98** against *Vyacheslav VOLODIN* (UA, OFAC, EU, UK).
+This matters in Poland in particular. Polish documents and press use **Polish transcription** (*Ławrow*, *Szojgu*, *Kadyrow*, *Wołodin*), while the lists use English spellings. In the measurements below, a naive fuzzy matcher scores *Wiaczesław Wołodin* at **61**: below any reasonable alert threshold, so the hit is missed. Its best "match" is a company called *Citadel Holding*. This tool scores it at **97** against *Vyacheslav VOLODIN* (OFAC, EU, UK).
 
 ## What it does
 
@@ -29,7 +29,7 @@ This matters in Poland in particular. Polish documents and press use **Polish tr
    - date of birth;
    - nationality;
    - gender (entered, or inferred from Slavic patronymic and surname endings);
-   - document number: passport, national ID, tax or registration number (28k identifiers parsed from the three lists);
+   - document number: passport, national ID, tax or registration number (31k identifiers parsed from the lists);
    - differing numbers in names (*SEA STAR 7* vs *SEA STAR 8*).
 
 | Score | Status |
@@ -59,22 +59,22 @@ Other features:
 
 ## Results on real list entries
 
-From `python -m scripts.evaluate`. The baseline is a naive screener: unidecode, then the best rapidfuzz `token_sort_ratio` over all ~190k aliases of the six lists.
+From `python -m scripts.evaluate`. The baseline is a naive screener: unidecode, then the best rapidfuzz `token_sort_ratio` over all ~99k aliases of the five lists.
 
 | Query | This tool | Baseline | Hit |
 |---|---:|---:|---|
 | Евгений Пригожин, 1961 | **100** | 91 | Yevgeniy Viktorovich PRIGOZHIN (EU, OFAC) |
-| Wiaczesław Wołodin | **98** | 61 | Vyacheslav VOLODIN (UA, OFAC, EU, UK) |
+| Wiaczesław Wołodin | **97** | 61 | Vyacheslav VOLODIN (OFAC, EU, UK) |
 | Ramzan Kadyrow | **99** | 69 | Ramzan Akhmadovitch KADYROV (EU) |
-| Aleksiej Miller | **100** | 90 | Alexey Borisovich MILLER (UK, OFAC) |
-| Ołeksandr Chodakowski | **96** | 74 | Aleksandr KHODAKOVSKII (EU) |
+| Aleksiej Miller | **100** | 79 | Alexey Borisovich MILLER (UK, OFAC) |
+| Ołeksandr Chodakowski | **96** | 72 | Aleksandr KHODAKOVSKII (EU) |
 | Ołeh Cariow | **100** | 73 | Oleg Tsariov (EU) |
 | Siergiej Ławrow | **100** | 76 | Sergei Viktorovich LAVROV (OFAC, EU) |
-| Аляксандр Лукашэнка | **100** | 100 | LUKASHENKO (UA, UK, EU, OFAC) |
-| Юрий Ковальчук, 1984, UA | 84 *review* | 100 | Yuriy KOVALCHUK (b. 1951): the baseline cannot see the date-of-birth conflict |
+| Аляксандр Лукашэнка | **99** | 83 | LUKASHENKO (UK, EU, OFAC) |
+| Юрий Ковальчук, 1984, UA | 84 *review* | 83 | Yuriy KOVALCHUK (b. 1951): the date-of-birth conflict is flagged as a false-positive argument |
 | Jan Kowalski, 1985, PL | no alert | – | – |
 
-A search over all six lists (~243k name forms) takes 0.05–0.5 s on a laptop. The index is cached on disk, so a restart takes about 2 s. The full output is in [`docs/evaluation.txt`](docs/evaluation.txt).
+A search over all five lists (~107k name forms) takes 0.05–0.3 s on a laptop. The index is cached on disk, so a restart takes about 2 s. The full output is in [`docs/evaluation.txt`](docs/evaluation.txt).
 
 ## Run locally
 
@@ -104,15 +104,14 @@ The Telegram bot (optional) runs with `TELEGRAM_BOT_TOKEN=... .venv/bin/python -
 | OFAC SDN List | `sanctionslistservice.ofac.treas.gov/.../SDN.XML` | XML |
 | Polish MSWiA sanctions list | OpenSanctions `pl_mswia_sanctions` | CSV |
 | UK FCDO Sanctions List | OpenSanctions `gb_fcdo_sanctions` | CSV |
-| Ukraine NSDC State Register of Sanctions | OpenSanctions `ua_nsdc_sanctions` | CSV |
 
-The three national lists come through [OpenSanctions](https://www.opensanctions.org/), because their publishers offer no convenient machine-readable file. That data is licensed **CC BY-NC 4.0**, which permits only non-commercial use such as this demo. Any list can be switched off with `ENABLED_SOURCES=EU,UN,OFAC`.
+The two national lists come through [OpenSanctions](https://www.opensanctions.org/), because their publishers offer no convenient machine-readable file. That data is licensed **CC BY-NC 4.0**, which permits only non-commercial use such as this demo. Any list can be switched off with `ENABLED_SOURCES=EU,UN,OFAC`.
 
-`python -m app.update` downloads the files again and replaces the data. About 28k document numbers and gender data are parsed along with the names. The UI shows each list's publication date and record count. All aliases are stored in every script that appears in the list (Latin, Cyrillic, Arabic, Greek…). Schema: `app/db.py`.
+`python -m app.update` downloads the files again and replaces the data. About 31k document numbers and gender data are parsed along with the names. The UI shows each list's publication date and record count. All aliases are stored in every script that appears in the list (Latin, Cyrillic, Arabic, Greek…). Schema: `app/db.py`.
 
 ## How matching works
 
-- **Index.** Every alias becomes a tuple of token ids into a shared vocabulary of ~120k distinct tokens. Non-Latin aliases are also stored in transliterated form. A parallel vocabulary holds phonetic skeletons.
+- **Index.** Every alias becomes a tuple of token ids into a shared vocabulary of ~63k distinct tokens. Non-Latin aliases are also stored in transliterated form. A parallel vocabulary holds phonetic skeletons.
 - **Retrieval.** For each query token, *all* its variants are compared against the whole vocabulary in a single vectorised `rapidfuzz.process.cdist` call. Records containing a token with similarity ≥ 70 become candidates. There is no full scan.
 - **Scoring:**
   - Query tokens are aligned to alias tokens in the best order, so name order doesn't matter.
@@ -158,7 +157,7 @@ I reviewed two open-source screening engines and adopted their best scoring idea
 
 | Project | What it is | Adopted here |
 |---|---|---|
-| [OpenSanctions yente / nomenklatura](https://www.opensanctions.org/matcher) | Rule-based *logic-v2* matcher: name score plus supporting and contradicting features; aggregated sanctions datasets | **the data feed** for the PL, UK and UA lists; gender-mismatch penalty, number-mismatch penalty, identifier match as strong evidence, a higher weight on the family name |
+| [OpenSanctions yente / nomenklatura](https://www.opensanctions.org/matcher) | Rule-based *logic-v2* matcher: name score plus supporting and contradicting features; aggregated sanctions datasets | **the data feed** for the PL and UK lists; gender-mismatch penalty, number-mismatch penalty, identifier match as strong evidence, a higher weight on the family name |
 | [moov-io/watchman](https://github.com/moov-io/watchman) | OFAC/EU/UN screening server in Go | search by document number, `min_score`/`limit` API parameters, periodic background list refresh, per-field debug output |
 
 What this project adds that both lack is the **explicit East Slavic transliteration layer**:
@@ -173,7 +172,7 @@ General engines treat cross-script matching as a known weak spot. OpenSanctions 
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Artemkits/sanctions-screener)
 
-**Render (free, no credit card).** Sign in to [render.com](https://render.com) with GitHub, then go to **New → Blueprint** and pick this repository. `render.yaml` configures everything else. The free plan has 512 MB RAM and sleeps after 15 minutes idle, so it runs four lists: EU, UN, OFAC and PL MSWiA. The first request after a sleep takes about a minute.
+**Render (free, no credit card).** Sign in to [render.com](https://render.com) with GitHub, then go to **New → Blueprint** and pick this repository. `render.yaml` configures everything else. The free plan (512 MB RAM) fits all five lists; the server uses about 360 MB. It sleeps after 15 minutes idle, and the first request after a sleep takes about a minute.
 
 **Any Linux server** (Ubuntu 22.04+ / Debian 12+, about 1 GB RAM):
 
@@ -195,7 +194,7 @@ Hugging Face Spaces also works with the same `Dockerfile` (`scripts/deploy_hf.sh
 
 ## Limitations
 
-- **This is a demo, not a compliance system.** It does not replace commercial screening solutions (World-Check, Dow Jones, LexisNexis). It covers six sanctions lists, but has no PEP data and no adverse media.
+- **This is a demo, not a compliance system.** It does not replace commercial screening solutions (World-Check, Dow Jones, LexisNexis). It covers five sanctions lists, but has no PEP data and no adverse media.
 - The transliteration rules cover Ukrainian, Russian and Belarusian names. Arabic and other scripts are matched only through their Latin aliases or a generic transliteration.
 - Scoring weights and thresholds are hand-tuned on a small sample. They are not calibrated on labelled alert data.
 - The audit log is a local SQLite table with no authentication. On free hosting it is reset whenever the container restarts.
@@ -204,4 +203,4 @@ Hugging Face Spaces also works with the same `Dockerfile` (`scripts/deploy_hf.sh
 
 ## License
 
-MIT. Sanctions data belongs to the respective publishers: European Commission, United Nations, U.S. Treasury, MSWiA, FCDO and NSDC of Ukraine. The PL, UK and UA lists are delivered by OpenSanctions under CC BY-NC 4.0.
+MIT. Sanctions data belongs to the respective publishers: European Commission, United Nations, U.S. Treasury, MSWiA and FCDO. The PL and UK lists are delivered by OpenSanctions under CC BY-NC 4.0.

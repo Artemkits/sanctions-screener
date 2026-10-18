@@ -1,7 +1,7 @@
 """Parser for OpenSanctions `targets.simple.csv` exports.
 
 Used for national lists that have no convenient official machine-readable file:
-the Polish MSWiA list, the UK FCDO list and the Ukrainian NSDC register.
+the Polish MSWiA list and the UK FCDO list.
 OpenSanctions data is licensed CC BY-NC 4.0 — fine for this non-commercial demo.
 """
 import csv
@@ -28,9 +28,6 @@ def _program(sanction: str, source: str) -> str:
     s = sanction.strip()
     if source == "PL":
         return "MSWiA"
-    if source == "UA":
-        m = re.match(r"^(\d+/\d{4})", s)                 # decree number, e.g. 813/2023
-        return f"RNBO {m.group(1)}" if m else "RNBO"
     head = s.split(" - ")[0].strip('" ')
     return head[:80]
 

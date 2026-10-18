@@ -1,5 +1,5 @@
 # Render Blueprint — free plan (512 MB RAM, 0.1 CPU, sleeps after 15 min idle).
-# Four lists fit comfortably into 512 MB; all six need ~1 GB (use a VPS for that).
+# All five lists fit into 512 MB (the server uses ~360 MB).
 # Lists are downloaded and indexed at build time; use "Manual Deploy" to refresh them.
 services:
   - type: web
@@ -10,7 +10,7 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: ENABLED_SOURCES
-        value: EU,UN,OFAC,PL
+        value: EU,UN,OFAC,PL,UK
       - key: REFRESH_HOURS          # never re-download on a cold start (keeps wake-up fast)
         value: "100000"
       - key: AUTO_REFRESH_HOURS     # no in-process refresh: a rebuild would not fit in 512 MB

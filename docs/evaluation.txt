@@ -1,27 +1,27 @@
 query                         ours  base    ms  status    best hit (list) / matched alias
-Евгений Пригожин 1961          100    91   461  match     Yevgeniy Viktorovich PRIGOZHIN (EU) / Jewgienij Prigożyn
+Евгений Пригожин 1961          100    91   111  match     Yevgeniy Viktorovich PRIGOZHIN (EU) / Jewgienij Prigożyn
                              exact (Russian Cyrillic) + DOB
-Wiaczesław Wołodin              98    61    80  match     Володін В’ячеслав Вікторович (UA) / VOLODIN VYACHESLAV
+Wiaczesław Wołodin              97    61    54  match     Vyacheslav Victorovich VOLODIN (OFAC) / Vyacheslav Victorovich VOLODIN
                              Polish spelling — found only through transliteration
-Ramzan Kadyrow                  99    69    57  match     Ramzan Akhmadovitch KADYROV (EU) / Ramzan Achmatovitj KADYROV
+Ramzan Kadyrow                  99    69    48  match     Ramzan Akhmadovitch KADYROV (EU) / Ramzan Achmatovitj KADYROV
                              Polish spelling — found only through transliteration
-Aleksiej Miller                100    90    57  match     Alexei MILLER (UK) / Alexey MILLER
+Aleksiej Miller                100    79    52  match     Alexei MILLER (UK) / Alexey MILLER
                              Polish spelling — found only through transliteration
-Ołeksandr Chodakowski           96    74   112  match     Aleksandr Sergeevich KHODAKOVSKII (EU) / Олександр Сергійович ХОДАКОВСЬКИЙ
+Ołeksandr Chodakowski           96    72    54  match     Aleksandr Sergeevich KHODAKOVSKII (EU) / Олександр Сергійович ХОДАКОВСЬКИЙ
                              Polish spelling of a Ukrainian name
-Ołeh Cariow                    100    73    72  match     Oleg Tsariov (EU) / Oleg Tsariov
+Ołeh Cariow                    100    73    51  match     Oleg Tsariov (EU) / Oleg Tsariov
                              Polish c = ts
-Siergiej Ławrow                100    76   104  match     Sergei Viktorovich LAVROV (OFAC) / Sergey LAVROV
+Siergiej Ławrow                100    76    59  match     Sergei Viktorovich LAVROV (OFAC) / Sergey LAVROV
                              Polish press spelling
-Сергій Цеков                   100    92   181  match     Sergey Pavlovych TSEKOV (EU) / Siergiej Cekow
+Сергій Цеков                   100    92    85  match     Sergey Pavlovych TSEKOV (EU) / Siergiej Cekow
                              Ukrainian Cyrillic, list has Russian form
-Аляксандр Лукашэнка            100   100   408  match     Лукашенко Олександр Григорович (UA) / Lukashenko Aleksandr
+Аляксандр Лукашэнка             99    83    71  match     Aleksandr Grigorievich Lukashenko (UK) / Aleksandr Grigorievich Lukashenko
                              Belarusian Cyrillic, -енка ↔ -енко
-Юрий Ковальчук 1951 RU         100   100   119  match     Yuri Valentinovich KOVALCHUK (OFAC) / Yuri Valentinovich KOVALCHUK
+Юрий Ковальчук 1951 RU         100    83   296  match     Yuri Valentinovich KOVALCHUK (OFAC) / Yuri Valentinovich KOVALCHUK
                              exact + DOB + nationality
-Юрий Ковальчук 1984 UA          84   100   117  review    Yuriy Valentinovich KOVALCHUK (EU) / Юрий Валентинович КОВАЛЬЧУК
+Юрий Ковальчук 1984 UA          84    83    74  review    Yuriy Valentinovich KOVALCHUK (EU) / Юрий Валентинович КОВАЛЬЧУК
                              same name, other DOB/nationality → false positive
-Siergiej Iwanow 1990 PL         84    81   105  review    Sergei Borisovich IVANOV (EU) / Сергей Борисович Иванов
+Siergiej Iwanow 1990 PL         84    81    65  review    Sergei Borisovich IVANOV (EU) / Сергей Борисович Иванов
                              common name → false positive
-Jan Kowalski 1985 PL            65    74    61  weak      Хованський Іван Анатолійович (UA) / Khovanskii Ivan
+Jan Kowalski 1985 PL            64    67    50  weak      CAVALLY ANTRO AND BAR (OFAC) / CAVALLY ANTRO AND BAR
                              clean customer

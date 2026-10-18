@@ -17,7 +17,7 @@ from .sources import eu, ofac, opensanctions, un
 from .text import detect_script
 
 PARSERS = {"EU": eu.parse, "UN": un.parse, "OFAC": ofac.parse,
-           "PL": opensanctions.parse_for("PL"), "UK": opensanctions.parse_for("UK"), "UA": opensanctions.parse_for("UA")}
+           "PL": opensanctions.parse_for("PL"), "UK": opensanctions.parse_for("UK")}
 
 
 def raw_path(source: str) -> Path:
