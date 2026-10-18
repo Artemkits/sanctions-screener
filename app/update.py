@@ -13,16 +13,22 @@ import httpx
 
 from .config import DATA_DIR, SOURCES
 from .db import dumps, session
-from .sources import eu, ofac, un
+from .sources import eu, ofac, opensanctions, un
 from .text import detect_script
 
-PARSERS = {"EU": eu.parse, "UN": un.parse, "OFAC": ofac.parse}
+PARSERS = {"EU": eu.parse, "UN": un.parse, "OFAC": ofac.parse,
+           "PL": opensanctions.parse_for("PL"), "UK": opensanctions.parse_for("UK"), "UA": opensanctions.parse_for("UA")}
+
+
+def raw_path(source: str) -> Path:
+    ext = "csv" if SOURCES[source].get("provider") == "opensanctions" else "xml"
+    return RAW_DIR / f"{source.lower()}.{ext}"
 RAW_DIR = DATA_DIR / "raw"
 
 
 def download(source: str) -> Path:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    target = RAW_DIR / f"{source.lower()}.xml"
+    target = raw_path(source)
     tmp = target.with_suffix(".part")
     headers = {"User-Agent": "sanctions-screener-demo/1.0 (+https://github.com)"}
     with httpx.stream("GET", SOURCES[source]["url"], headers=headers, timeout=180, follow_redirects=True) as r:
@@ -80,7 +86,7 @@ def update(sources=None, offline=False) -> dict:
     for src in sources or list(SOURCES):
         t0 = time.time()
         try:
-            path = RAW_DIR / f"{src.lower()}.xml" if offline else download(src)
+            path = raw_path(src) if offline else download(src)
             n, na, list_date = load(src, path)
             set_meta(src, fetched_at=datetime.now(UTC).isoformat(timespec="seconds"),
                      list_date=list_date, record_count=n, alias_count=na,

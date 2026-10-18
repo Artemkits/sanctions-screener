@@ -17,7 +17,7 @@
     <span class="mark" aria-hidden="true"></span>
     <span>
       <span class="brand-name">Sanctions Screener</span>
-      <span class="brand-sub" data-i18n="tagline">Screening UE · ONZ · OFAC z uwzględnieniem transliteracji</span>
+      <span class="brand-sub" data-i18n="tagline">Screening sankcyjny z uwzględnieniem transliteracji</span>
     </span>
   </a>
   <div class="top-right">
@@ -78,6 +78,10 @@
           <label for="document" data-i18n="f_doc">Nr dokumentu</label>
           <input id="document" maxlength="40" placeholder="paszport / ID / NIP">
         </div>
+        <fieldset class="field lists-pick" id="lists-pick">
+          <legend data-i18n="f_lists">Sprawdzane listy</legend>
+          <div class="pick" id="pick"></div>
+        </fieldset>
         <div class="field actions">
           <button type="submit" class="primary" id="go" data-i18n="check">Sprawdź</button>
           <button type="button" class="linkish" id="reset" data-i18n="new_check" hidden>Nowe sprawdzenie</button>

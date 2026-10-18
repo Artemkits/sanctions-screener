@@ -5,14 +5,14 @@
    ===================================================================== */
 const I18N = {
   pl: {
-    tagline: "Screening UE · ONZ · OFAC z uwzględnieniem transliteracji", analyst: "Analityk",
+    tagline: "Screening sankcyjny z uwzględnieniem transliteracji", analyst: "Analityk",
     disclaimer: "Narzędzie demonstracyjne. Nie stanowi podstawy do decyzji compliance.",
     nav_work: "Praca", nav_data: "Dane", tab_screen: "Screening", tab_batch: "Batch (CSV)", tab_audit: "Dziennik",
     tab_lists: "Listy sankcyjne", tab_method: "Metodologia",
     f_name: "Imię i nazwisko / nazwa *", f_birth: "Data urodzenia", f_nat: "Obywatelstwo", f_type: "Typ",
     t_person: "osoba fizyczna", t_entity: "podmiot", t_any: "dowolny", check: "Sprawdź", checking: "Sprawdzanie…",
     intro_eyebrow: "Luka transliteracyjna", intro_h: "Jedno nazwisko, wiele zapisów",
-    intro_p: "Ta sama osoba figuruje w paszporcie, w prasie i na liście sankcyjnej pod różnymi zapisami łacińskimi. Narzędzie generuje warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w listach UE, ONZ i OFAC.",
+    intro_p: "Ta sama osoba figuruje w paszporcie, w prasie i na liście sankcyjnej pod różnymi zapisami łacińskimi. Narzędzie generuje warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w sześciu listach sankcyjnych: UE, ONZ, OFAC, polskiej MSWiA, brytyjskiej i ukraińskiej.",
     demo_h: "Scenariusze demonstracyjne", demo_exact: "Trafienie dokładne", demo_translit: "Tylko dzięki transliteracji",
     demo_translit_meta: "pisownia polska", demo_fp: "False positive", demo_by: "Cyrylica białoruska",
     map_h: "Mapa dopasowania", map_sub: "zapytanie → wariant, który dał trafienie → rekord na liście",
@@ -51,7 +51,8 @@ const I18N = {
     lists_h: "Listy sankcyjne",
     lists_p: "Oficjalne skonsolidowane listy pobierane bezpośrednio od wydawców i zapisywane we wspólnym schemacie. Aktualizacja: python -m app.update",
     l_entries: "rekordów", l_aliases: "aliasów", l_dob: "z datą ur.", l_types: "Typy", l_scripts: "Alfabety aliasów",
-    l_programs: "Najczęstsze programy", l_version: "Wersja listy", l_fetched: "pobrano", l_source: "źródło danych",
+    l_programs: "Najczęstsze programy", l_os: "Lista krajowa pobierana przez OpenSanctions (licencja CC BY-NC 4.0 — tylko użytek niekomercyjny).",
+    f_lists: "Sprawdzane listy", l_version: "Wersja listy", l_fetched: "pobrano", l_source: "źródło danych",
     latin: "łaciński", cyrillic: "cyrylica", arabic: "arabski", greek: "grecki", other: "inne",
     method_h: "Metodologia", method_p: "Jak powstaje wynik — od wpisanego nazwiska do decyzji analityka.",
     p1: "Wykrycie języka", p1d: "і ї є ґ → ukraiński, ъ → rosyjski, ы э → rosyjski lub białoruski, ў → białoruski; brak cech → wszystkie trzy.",
@@ -64,7 +65,7 @@ const I18N = {
     table_h: "Tablica transliteracji", table_sub: "generowana z kodu, który wykonuje wyszukiwanie · kilka wartości = zależność od pozycji litery",
     examples_h: "Przykłady", ctx_initial: "na początku słowa", ctx_middle: "po spółgłosce", ctx_after_vowel: "po samogłosce", ctx_before_soft: "przed е/и/ь",
     letter_not_in: "litera nie występuje w tym języku",
-    foot: "Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
+    foot: "Dane: oficjalne listy UE (FSF), Rady Bezpieczeństwa ONZ i OFAC SDN; listy PL MSWiA, UK FCDO i UA RNBO przez OpenSanctions (CC BY-NC 4.0). Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
     conflict_birth: "inna data urodzenia", conflict_nationality: "inne obywatelstwo", conflict_alias: "słaby alias",
     conflict_gender: "inna płeć", conflict_number: "inny numer w nazwie",
     f_gender: "Płeć", g_m: "mężczyzna", g_f: "kobieta", f_doc: "Nr dokumentu", g_inferred: "płeć wywnioskowana z nazwiska",
@@ -72,14 +73,14 @@ const I18N = {
     short_h: "Za krótkie zapytanie", short_p: "Wpisz pełne imię i nazwisko lub nazwę podmiotu — sama litera albo przedimek (al, bin) nie wystarczą.", error: "Błąd", list_error: "błąd pobierania",
   },
   en: {
-    tagline: "Transliteration-aware EU · UN · OFAC screening", analyst: "Analyst",
+    tagline: "Transliteration-aware sanctions screening", analyst: "Analyst",
     disclaimer: "Demo tool. Not a basis for compliance decisions.",
     nav_work: "Work", nav_data: "Data", tab_screen: "Screening", tab_batch: "Batch (CSV)", tab_audit: "Audit log",
     tab_lists: "Sanctions lists", tab_method: "Methodology",
     f_name: "Full name / entity name *", f_birth: "Date of birth", f_nat: "Nationality", f_type: "Type",
     t_person: "individual", t_entity: "entity", t_any: "any", check: "Screen", checking: "Screening…",
     intro_eyebrow: "The transliteration gap", intro_h: "One surname, many spellings",
-    intro_p: "The same person appears in a passport, in the press and on a sanctions list under different Latin spellings. The tool generates the variants using official transliteration systems and checks each one against the EU, UN and OFAC lists.",
+    intro_p: "The same person appears in a passport, in the press and on a sanctions list under different Latin spellings. The tool generates the variants using official transliteration systems and checks each one against six sanctions lists: EU, UN, OFAC, the Polish MSWiA list, the UK list and the Ukrainian NSDC register.",
     demo_h: "Demo scenarios", demo_exact: "Exact match", demo_translit: "Found only through transliteration",
     demo_translit_meta: "Polish spelling", demo_fp: "False positive", demo_by: "Belarusian Cyrillic",
     map_h: "Match map", map_sub: "query → the variant that produced the hit → list record",
@@ -118,7 +119,8 @@ const I18N = {
     lists_h: "Sanctions lists",
     lists_p: "Official consolidated lists downloaded directly from the publishers and stored in one schema. Update: python -m app.update",
     l_entries: "records", l_aliases: "aliases", l_dob: "with DOB", l_types: "Types", l_scripts: "Alias scripts",
-    l_programs: "Top programmes", l_version: "List version", l_fetched: "downloaded", l_source: "data source",
+    l_programs: "Top programmes", l_os: "National list obtained via OpenSanctions (CC BY-NC 4.0 — non-commercial use only).",
+    f_lists: "Lists to check", l_version: "List version", l_fetched: "downloaded", l_source: "data source",
     latin: "Latin", cyrillic: "Cyrillic", arabic: "Arabic", greek: "Greek", other: "other",
     method_h: "Methodology", method_p: "How a score is produced — from the typed name to the analyst's decision.",
     p1: "Language detection", p1d: "і ї є ґ → Ukrainian, ъ → Russian, ы э → Russian or Belarusian, ў → Belarusian; no markers → all three.",
@@ -131,7 +133,7 @@ const I18N = {
     table_h: "Transliteration table", table_sub: "generated from the code that runs the search · several values = depends on the letter's position",
     examples_h: "Examples", ctx_initial: "word-initial", ctx_middle: "after a consonant", ctx_after_vowel: "after a vowel", ctx_before_soft: "before е/и/ь",
     letter_not_in: "letter not used in this language",
-    foot: "Data: public consolidated lists of the EU (FSF), the UN Security Council and OFAC SDN. Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
+    foot: "Data: official EU (FSF), UN Security Council and OFAC SDN lists; PL MSWiA, UK FCDO and UA NSDC lists via OpenSanctions (CC BY-NC 4.0). Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
     conflict_birth: "different date of birth", conflict_nationality: "different nationality", conflict_alias: "weak alias",
     conflict_gender: "different gender", conflict_number: "different number in name",
     f_gender: "Gender", g_m: "male", g_f: "female", f_doc: "Document no.", g_inferred: "gender inferred from the name",
@@ -147,7 +149,9 @@ const SYS = {
         BGN: "BGN/PCGN", POP: "common English", PL: "Polish (PWN)", DE: "German (Duden)", BY_PASS: "BY — passport",
         VAR: "phonetic variant", LATIN: "input spelling", LATIN_ALT: "alternative spelling", SKELETON: "phonetic skeleton", CYR: "original script (Cyrillic)" },
 };
-const LIST_LABEL = { pl: { EU: "UE", UN: "ONZ", OFAC: "OFAC" }, en: { EU: "EU", UN: "UN", OFAC: "OFAC" } };
+const LIST_LABEL = { pl: { EU: "UE", UN: "ONZ", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK", UA: "UA RNBO" },
+                     en: { EU: "EU", UN: "UN", OFAC: "OFAC", PL: "PL MSWiA", UK: "UK", UA: "UA NSDC" } };
+const OPEN_SANCTIONS = ["PL", "UK", "UA"];
 
 let lang = "pl";
 let last = null;          // last search response
@@ -192,8 +196,23 @@ async function loadStatus() {
     status = await getJSON("/api/status");
   } catch (_) { status = null; }
   renderSideLists();
+  renderPick();
   if (!status || !status.ready) setTimeout(loadStatus, 2500);
 }
+
+function renderPick() {
+  const box = $("#pick");
+  if (!status || box.dataset.ready) return;
+  let saved = null;
+  try { saved = JSON.parse(store("lists") || "null"); } catch (_) {}
+  box.innerHTML = Object.keys(status.lists).map((k) =>
+    `<label title="${OPEN_SANCTIONS.includes(k) ? "OpenSanctions (CC BY-NC 4.0)" : ""}"><input type="checkbox" value="${k}" ${!saved || saved.includes(k) ? "checked" : ""}>
+     ${esc(listLabel(k))}</label>`).join("");
+  box.dataset.ready = "1";
+  box.addEventListener("change", () => store("lists", JSON.stringify(pickedLists())));
+}
+
+function pickedLists() { return $$("#pick input:checked").map((i) => i.value); }
 
 function renderSideLists() {
   const box = $("#side-lists");
@@ -248,6 +267,7 @@ function drawEdges(el, animate) {
 function renderIntroFan() {
   const el = $("#intro-fan");
   if (!el || $("#intro").hidden) return;
+  const lists = status ? Object.keys(status.lists) : ["EU", "UN", "OFAC"];
   const variants = [
     ["Serhii Shcherbyna", "UA_KMU2010"], ["Serhiy Shcherbyna", "BGN"], ["Sergii Shcherbina", "VAR"],
     ["Siergiej Szczerbina", "PL"], ["Sergej Schtscherbina", "DE"], ["Sergey Shcherbina", "POP"],
@@ -255,10 +275,10 @@ function renderIntroFan() {
   const cols = [
     { title: t("col_query"), nodes: [{ id: "q", cls: "query", html: `<div class="t">Сергій Щербина</div><div class="s">${t("lang_uk")}</div>` }] },
     { title: t("col_variant"), nodes: variants.map(([v, s], i) => ({ id: "v" + i, cls: "variant", html: `<div class="t">${v}</div><div class="s"><b>${esc(sys(s))}</b></div>` })) },
-    { title: t("col_lists"), nodes: ["EU", "UN", "OFAC"].map((s) => ({ id: s, cls: "list", html: `<span class="t">${listLabel(s)}</span><span class="s">${status ? fmt(status.lists[s]?.record_count) : ""}</span>` })) },
+    { title: t("col_lists"), nodes: lists.map((s) => ({ id: s, cls: "list", html: `<span class="t">${listLabel(s)}</span><span class="s">${status ? fmt(status.lists[s]?.record_count) : ""}</span>` })) },
   ];
   const edges = variants.map((_, i) => ({ from: "q", to: "v" + i }));
-  variants.forEach((_, i) => ["EU", "UN", "OFAC"].forEach((s) => edges.push({ from: "v" + i, to: s, cls: "dim" })));
+  variants.forEach((_, i) => lists.forEach((s) => edges.push({ from: "v" + i, to: s, cls: "dim" })));
   renderFan(el, cols, edges, true);
 }
 
@@ -327,6 +347,7 @@ async function runSearch(e) {
     last = await getJSON("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, birth: $("#birth").value.trim(), nationality: $("#nat").value,
         entity_type: $("#etype").value, gender: $("#gender").value, document: $("#document").value.trim(),
+        sources: pickedLists(),
         show_weak: true, analyst: $("#analyst").value.trim() }) });
     renderSearch(last);
   } catch (err) {
@@ -593,6 +614,7 @@ async function loadLists() {
       <div><h3>${t("l_types")}</h3>${bars(types, v.entries, (x) => t(x))}</div>
       <div><h3>${t("l_scripts")}</h3>${bars(scripts, v.aliases, (x) => t(x))}</div>
       <div><h3>${t("l_programs")}</h3>${bars(progs, progs.length ? progs[0][1] : 1)}</div>
+      ${v.provider === "opensanctions" ? `<div class="lcard-os">${t("l_os")}</div>` : ""}
       <div class="lcard-foot">${t("l_fetched")} ${esc((v.fetched_at || "").replace("T", " ").slice(0, 16))} UTC ·
         <a href="${esc(v.info_url)}" target="_blank" rel="noopener">${t("l_source")}</a></div>
     </article>`;

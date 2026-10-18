@@ -23,15 +23,18 @@ from __future__ import annotations
 
 import itertools
 import json
+import pickle
 import re
 import threading
 import time
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 from rapidfuzz import fuzz, process
 
-from .config import MATCH_THRESHOLD, REVIEW_THRESHOLD, SOURCES, WEAK_THRESHOLD
+from .config import DB_PATH, MATCH_THRESHOLD, REVIEW_THRESHOLD, SOURCES, WEAK_THRESHOLD
 from .db import connect
 from .sources import norm_id, norm_sex
 from .text import (
@@ -70,7 +73,7 @@ LEGAL_FORMS = {"company", "co", "ltd", "limited", "llc", "ooo", "oao", "zao", "p
 CYR_SURNAME = re.compile(r"(ов|ев|ёв|ин|ын|ова|ева|ина|ына|енко|енка|эн?ка|ук|юк|чук|ский|цкий|ський|цький|ская|ська|ич|іч|ко|як|ак)$")
 
 
-@dataclass
+@dataclass(slots=True)
 class Form:
     entry: int          # entries.id
     alias: int          # aliases.id
@@ -80,17 +83,21 @@ class Form:
     patro: tuple        # True where the token is a patronymic in the middle of the name
 
 
+_TRANSLIT = {"UA_KMU2010": ua_kmu2010, "BY_PASS": by_passport, "RU_ICAO": ru_icao}
+
+
+@lru_cache(maxsize=500_000)
+def _translit_token(token: str, method: str) -> str:
+    return _TRANSLIT[method](token)
+
+
 def _latin_of(alias: str, script: str) -> tuple[str, str]:
     """Latin rendering of a non-Latin alias for the index + the method used."""
     if script == "cyrillic":
-        lang = detect_language(" ".join(norm_cyrillic(t) for t in split_tokens(alias)))
-        if lang == ["uk"]:
-            fn, label = ua_kmu2010, "UA_KMU2010"
-        elif lang == ["be"]:
-            fn, label = by_passport, "BY_PASS"
-        else:
-            fn, label = ru_icao, "RU_ICAO"
-        return " ".join(fn(norm_cyrillic(t)) for t in split_tokens(alias)), label
+        toks = [norm_cyrillic(t) for t in split_tokens(alias)]
+        lang = detect_language(" ".join(toks))
+        label = "UA_KMU2010" if lang == ["uk"] else ("BY_PASS" if lang == ["be"] else "RU_ICAO")
+        return " ".join(_translit_token(t, label) for t in toks if t), label
     return norm_latin(alias), "unidecode"
 
 
@@ -111,6 +118,43 @@ class Index:
         self.build_seconds = 0.0
 
     # ------------------------------------------------------------------ build
+    CACHE_VERSION = 3   # bump when the index layout or normalisation changes
+
+    def load_or_build(self):
+        """Load a pickled index if it matches the current database, otherwise build and save one."""
+        db = Path(DB_PATH)
+        cache = db.with_suffix(".index.pkl")
+        sig = None
+        if db.exists():
+            # keyed on list versions, not on the file: the audit log lives in the same database
+            conn = connect()
+            meta = tuple(tuple(r) for r in conn.execute(
+                "SELECT source, fetched_at, record_count, alias_count FROM source_meta ORDER BY source"))
+            conn.close()
+            sig = (self.CACHE_VERSION, tuple(sorted(SOURCES)), meta)
+        if sig and cache.exists():
+            t0 = time.time()
+            try:
+                with open(cache, "rb") as f:
+                    saved_sig, state = pickle.load(f)
+                if saved_sig == sig:
+                    self.__dict__.update(state)
+                    self.build_seconds = round(time.time() - t0, 2)
+                    self.built_at = time.strftime("%Y-%m-%d %H:%M:%S") + " (cache)"
+                    return self
+            except Exception:  # a stale or corrupt cache is simply rebuilt
+                pass
+        self.build()
+        if sig:
+            try:
+                tmp = cache.with_suffix(".tmp")
+                with open(tmp, "wb") as f:
+                    pickle.dump((sig, self.__dict__), f, protocol=pickle.HIGHEST_PROTOCOL)
+                tmp.replace(cache)
+            except OSError:
+                pass
+        return self
+
     def build(self, conn=None):
         t0 = time.time()
         conn = conn or connect()
@@ -205,7 +249,8 @@ class Index:
         return {int(v): (float(best[v]), int(a)) for v, a in zip(idx, arg, strict=False)}
 
     def search(self, name: str, birth: str = "", nationality: str = "", entity_type: str = "any",
-               limit: int = 50, min_score: float = WEAK_THRESHOLD, gender: str = "", document: str = "") -> dict:
+               limit: int = 50, min_score: float = WEAK_THRESHOLD, gender: str = "", document: str = "",
+               sources: list | None = None) -> dict:
         t0 = time.time()
         # a year or date typed into the name field is treated as the date of birth
         date_tokens = [tk for tk in name.split() if DATE_TOKEN.match(tk)]
@@ -237,17 +282,23 @@ class Index:
             for s in skel[i]:
                 for f in self.skel_inv[s]:
                     cand.setdefault(f, set()).add(i)
-        # A candidate must hit the surname, or (for 1-token names) the only token.
-        need = max(1, len(q) // 2)
+        # Every query word (a patronymic excepted) must be present in a candidate name form.
+        # Forms missing a word could never rise above "weak", so they are not scored at all.
+        q_patro = [_is_patronymic(tv) for tv in q]
+        # numbers are a mismatch signal (SEA STAR 7 vs 8), not a requirement
+        required = {i for i in range(len(q)) if not (q_patro[i] and len(q) > 2)
+                    and not q[i].variants[0].norm.isdigit()} or {0}
+        args = (q, q_strings, skel_lists, direct, skel, surname_i, q_patro)
         best_by_entry: dict[int, dict] = {}
         for f_id, hit in cand.items():
-            if len(hit) < need:
+            if not required <= hit:
                 continue
             form = self.forms[f_id]
             entry = self.entries[form.entry]
-            if entity_type != "any" and not _type_ok(entry["entity_type"], entity_type):
+            if (sources and entry["source"] not in sources) or \
+                    (entity_type != "any" and not _type_ok(entry["entity_type"], entity_type)):
                 continue
-            scored = self._score_form(form, q, q_strings, skel_lists, direct, skel, surname_i)
+            scored = self._score_form(form, *args)
             if scored is None:
                 continue
             prev = best_by_entry.get(form.entry)
@@ -261,8 +312,10 @@ class Index:
             entry = self.entries[entry_id]
             if entity_type != "any" and not _type_ok(entry["entity_type"], entity_type):
                 continue
+            if sources and entry["source"] not in sources:
+                continue
             for f_id in self.forms_by_entry.get(entry_id, []):
-                scored = self._score_form(self.forms[f_id], q, q_strings, skel_lists, direct, skel, surname_i, floor=False)
+                scored = self._score_form(self.forms[f_id], *args, floor=False)
                 prev = best_by_entry.get(entry_id)
                 if scored and (prev is None or scored["name_score"] > prev["name_score"]):
                     best_by_entry[entry_id] = scored
@@ -272,6 +325,7 @@ class Index:
         results = []
         for entry_id, sc in best_by_entry.items():
             entry = self.entries[entry_id]
+            sc = self._score_form(sc["form"], *args, floor=False, explain=True)   # full explanation only now
             score, factors = _adjust(sc["name_score"], entry, birth, nationality, sex or inferred, bool(inferred), doc)
             if sc["explanation"].get("number_mismatch"):
                 factors.append(_factor("number", -10, False, "Różne liczby w nazwie (np. numer statku lub spółki)",
@@ -318,10 +372,11 @@ class Index:
             "combinations": int(np.prod([max(1, len(tv.variants)) for tv in tvs])),
             "candidates": len(cand),
             "gender": sex, "gender_inferred": inferred, "document": document,
+            "sources": sorted(sources) if sources else sorted(SOURCES),
             "results": results[:limit],
             "total_results": len(results),
             "elapsed_ms": round((time.time() - t0) * 1000),
-            "lists": self.list_versions(),
+            "lists": self.list_versions(sources),
         }
 
     def _empty(self, name, birth, nationality, entity_type, tvs, elapsed):
@@ -330,10 +385,10 @@ class Index:
                 "combinations": 0, "candidates": 0, "results": [], "total_results": 0, "too_short": True,
                 "elapsed_ms": round(elapsed * 1000), "lists": self.list_versions()}
 
-    def _score_form(self, form, q, q_strings, skel_lists, direct, skel, surname_i, floor=True):
+    def _score_form(self, form, q, q_strings, skel_lists, direct, skel, surname_i, q_patro,
+                    floor=True, explain=False):
         toks, sks = form.tokens[:MAX_ALIGN_TOKENS], form.skels[:MAX_ALIGN_TOKENS]
         n, m = len(q), len(toks)
-        q_patro = [_is_patronymic(tv) for tv in q]
         # similarity matrix with provenance
         sim = [[(0.0, None)] * m for _ in range(n)]
         for i in range(n):
@@ -362,7 +417,7 @@ class Index:
         used_q = []
         for i, j in enumerate(best_perm):
             s = sim[i][j][0] if j is not None else 0.0
-            if s < TOKEN_CUTOFF and n > 2 and i != surname_i and _is_patronymic(q[i]):
+            if s < TOKEN_CUTOFF and n > 2 and i != surname_i and q_patro[i]:
                 continue
             used_q.append(i)
         if not used_q:
@@ -413,6 +468,8 @@ class Index:
         number_mismatch = bool(q_nums and a_nums and q_nums.isdisjoint(a_nums))
         if floor and name_score < WEAK_THRESHOLD - 15:
             return None
+        if not explain:
+            return {"name_score": max(0.0, min(100.0, name_score)), "form": form}
 
         token_rows = []
         for i in range(n):
@@ -441,6 +498,7 @@ class Index:
 
         return {
             "name_score": max(0.0, min(100.0, name_score)),
+            "form": form,
             "alias_id": form.alias,
             "explanation": {
                 "form_kind": form.kind,
@@ -455,9 +513,9 @@ class Index:
             },
         }
 
-    def list_versions(self):
+    def list_versions(self, only=None):
         return {s: {k: self.meta.get(s, {}).get(k) for k in ("list_date", "fetched_at", "record_count", "alias_count", "status")}
-                for s in SOURCES}
+                for s in SOURCES if not only or s in only}
 
     def entry_detail(self, entry_id: int) -> dict | None:
         conn = connect()
@@ -688,13 +746,13 @@ def get_index() -> Index:
     global _index
     with _lock:
         if _index is None:
-            _index = Index().build()
+            _index = Index().load_or_build()
         return _index
 
 
 def rebuild_index() -> Index:
     global _index
-    new = Index().build()
+    new = Index().load_or_build()
     with _lock:
         _index = new
     return new

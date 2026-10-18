@@ -61,6 +61,7 @@ class SearchIn(BaseModel):
     gender: str = Field("", pattern="^(|M|F)$")
     document: str = Field("", max_length=40)
     show_weak: bool = True
+    sources: list[str] = Field(default_factory=list, max_length=10)
     min_score: float | None = Field(None, ge=0, le=100)
     limit: int = Field(50, ge=1, le=200)
     analyst: str = Field("", max_length=80)
@@ -103,7 +104,8 @@ def status():
 def lists():
     ix = get_index()
     return {s: {**ix.list_versions()[s], **ix.stats.get(s, {}), "name": SOURCES[s]["name"],
-                "label": SOURCES[s]["label"], "url": SOURCES[s]["url"], "info_url": SOURCES[s]["info_url"]}
+                "label": SOURCES[s]["label"], "url": SOURCES[s]["url"], "info_url": SOURCES[s]["info_url"],
+                "provider": SOURCES[s].get("provider", "official")}
             for s in SOURCES}
 
 
@@ -123,12 +125,13 @@ def search(body: SearchIn):
     ix = get_index()
     min_score = body.min_score if body.min_score is not None else (WEAK_THRESHOLD if body.show_weak else REVIEW_THRESHOLD)
     res = ix.search(body.name, birth=body.birth, nationality=body.nationality.upper(), entity_type=body.entity_type,
-                    min_score=min_score, limit=body.limit, gender=body.gender, document=body.document)
+                    min_score=min_score, limit=body.limit, gender=body.gender, document=body.document,
+                    sources=[x for x in body.sources if x in SOURCES] or None)
     counts = {s: sum(1 for r in res["results"] if r["status"] == s) for s in ("match", "review", "weak")}
     res["search_id"] = audit.log(
         "search", body.analyst,
         {"name": body.name, "birth": body.birth, "nationality": body.nationality, "entity_type": body.entity_type,
-         "gender": body.gender, "document": body.document},
+         "gender": body.gender, "document": body.document, "sources": body.sources},
         {"top_score": res["results"][0]["score"] if res["results"] else None, **counts,
          "elapsed_ms": res["elapsed_ms"]},
         payload=res)

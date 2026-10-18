@@ -7,6 +7,7 @@ the same skeleton even when no transliteration system produces both of them.
 """
 import re
 import unicodedata
+from functools import lru_cache
 
 from unidecode import unidecode
 
@@ -47,6 +48,7 @@ def fix_homoglyphs(token: str) -> str:
     return token.lower().translate(_HOMOGLYPHS)
 
 
+@lru_cache(maxsize=500_000)
 def norm_cyrillic(token: str) -> str:
     t = fix_homoglyphs(token).lower().replace("ё", "е")
     for a in APOSTROPHES:
@@ -84,6 +86,7 @@ _SKELETON_RULES = [
 _SKELETON_RE = [(re.compile(p), r) for p, r in _SKELETON_RULES]
 
 
+@lru_cache(maxsize=500_000)
 def skeleton(token: str) -> str:
     """Phonetic key of a single *normalised latin* token."""
     s = token
@@ -100,6 +103,7 @@ PATRONYMIC = re.compile(r"(v[iy](?:ch|tch|tsch|tj|tsj|c|cz)|wi?cz|ich|ych|vna|wn
 CYR_PATRONYMIC = re.compile(r"(ович|евич|ёвич|ич|йович|ійович|овна|евна|ична|івна|ївна|авіч|явіч|аўна|еўна|аўна)$")
 
 
+@lru_cache(maxsize=500_000)
 def looks_like_patronymic(token: str) -> bool:
     """Latin or Cyrillic token that looks like a patronymic (Viktorovich, Олександрович)."""
     if len(token) <= 5:
