@@ -10,6 +10,8 @@ FIRST_COLUMNS = ("first_name", "firstname", "imie", "imię", "given_name")
 LAST_COLUMNS = ("last_name", "lastname", "nazwisko", "surname", "family_name")
 BIRTH_COLUMNS = ("birth", "dob", "birth_date", "date_of_birth", "data_urodzenia", "rok_urodzenia", "year")
 NAT_COLUMNS = ("nationality", "citizenship", "obywatelstwo", "country")
+GENDER_COLUMNS = ("gender", "sex", "plec", "płeć")
+DOC_COLUMNS = ("document", "passport", "id_number", "nr_dokumentu", "dokument", "paszport")
 MAX_ROWS = 300
 
 
@@ -32,6 +34,7 @@ def read_rows(raw: bytes) -> tuple[list[dict], bool]:
     header = reader.fieldnames or []
     name_c, first_c, last_c = _find(header, NAME_COLUMNS), _find(header, FIRST_COLUMNS), _find(header, LAST_COLUMNS)
     birth_c, nat_c = _find(header, BIRTH_COLUMNS), _find(header, NAT_COLUMNS)
+    gender_c, doc_c = _find(header, GENDER_COLUMNS), _find(header, DOC_COLUMNS)
     if not name_c and not last_c:
         name_c = header[0] if header else None     # fall back to the first column
     rows, truncated = [], False
@@ -45,13 +48,15 @@ def read_rows(raw: bytes) -> tuple[list[dict], bool]:
             continue
         rows.append({"row": i + 1, "name": name,
                      "birth": (r.get(birth_c) or "").strip() if birth_c else "",
-                     "nationality": (r.get(nat_c) or "").strip().upper()[:2] if nat_c else ""})
+                     "nationality": (r.get(nat_c) or "").strip().upper()[:2] if nat_c else "",
+                     "gender": (r.get(gender_c) or "").strip() if gender_c else "",
+                     "document": (r.get(doc_c) or "").strip() if doc_c else ""})
     return rows, truncated
 
 
 def screen_row(index, r: dict, entity_type: str = "person") -> dict:
     res = index.search(r["name"], birth=r["birth"], nationality=r["nationality"], entity_type=entity_type,
-                       limit=3, min_score=REVIEW_THRESHOLD)
+                       limit=3, min_score=REVIEW_THRESHOLD, gender=r.get("gender", ""), document=r.get("document", ""))
     top = res["results"]
     best = top[0] if top else None
     return {**r,

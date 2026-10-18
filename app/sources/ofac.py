@@ -3,10 +3,14 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from . import Alias, Entry, ParseResult
+from . import Alias, Entry, ParseResult, make_id, norm_sex
 from .countries import to_iso2
 
 TYPE_MAP = {"Individual": "person", "Entity": "entity", "Vessel": "vessel", "Aircraft": "aircraft"}
+# idList entries that describe the record rather than identify it
+NOT_IDENTIFIERS = ("risk", "gender", "date", "additional sanctions", "website", "organization type", "prohibited",
+                   "target type", "executive order", "year of build", "email", "aircraft model", "aircraft operator",
+                   "vessel type", "phone", "flag", "tonnage", "call sign", "nationality of registration")
 DETAIL_URL = "https://sanctionssearch.ofac.treas.gov/Details.aspx?id={}"
 
 
@@ -70,10 +74,15 @@ def parse(path) -> ParseResult:
                     nats.append({"iso2": iso, "name": c})
         programs = [p.text.strip() for p in el.iter(ns + "program") if p.text]
         uid = el.findtext(ns + "uid")
-        gender = ""
+        gender, ids = "", []
         for i in el.iter(ns + "id"):
-            if (i.findtext(ns + "idType") or "") == "Gender":
+            id_type = i.findtext(ns + "idType") or ""
+            if id_type == "Gender":
                 gender = i.findtext(ns + "idNumber") or ""
+            elif not any(w in id_type.lower() for w in NOT_IDENTIFIERS):
+                d = make_id(id_type, i.findtext(ns + "idNumber") or "", i.findtext(ns + "idCountry") or "")
+                if d and d not in ids:
+                    ids.append(d)
         entries.append(Entry(
             source="OFAC",
             source_id=uid,
@@ -86,7 +95,8 @@ def parse(path) -> ParseResult:
             listed_on="",
             url=DETAIL_URL.format(uid),
             remarks=(el.findtext(ns + "remarks") or "").strip()[:2000],
-            extra={"gender": gender, "title": (el.findtext(ns + "title") or "").strip()},
+            extra={"gender": gender, "sex": norm_sex(gender), "identifiers": ids,
+                   "title": (el.findtext(ns + "title") or "").strip()},
         ))
         el.clear()
     return ParseResult(entries=entries, list_date=list_date)

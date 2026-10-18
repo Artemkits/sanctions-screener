@@ -21,7 +21,12 @@ This matters in Poland in particular. Polish documents and press use **Polish tr
    - It adds **equivalent given names** across languages (*Сергій ↔ Сергей*, *Олександр ↔ Александр ↔ Аляксандр*) and the Belarusian surname suffix `-енка ↔ -енко`.
    - For Latin input it removes diacritics and generates alternatives between spelling conventions (`sz ↔ sh`, `cz ↔ ch`, `w ↔ v`, Polish `c ↔ ts`, `-ij ↔ -iy ↔ -y`).
 2. **Matches against all aliases** in all three lists, including the Cyrillic, Arabic and Greek ones. A *phonetic skeleton* catches spellings that no system produces.
-3. **Scores and explains each hit.** The analyst sees which variant matched which alias, which system produced it, and how date of birth and nationality changed the score.
+3. **Scores and explains each hit.** The analyst sees which variant matched which alias, which system produced it, and how the secondary identifiers changed the score:
+   - date of birth;
+   - nationality;
+   - gender (entered, or inferred from Slavic patronymic and surname endings);
+   - document number: passport, national ID, tax or registration number (28k identifiers parsed from the three lists);
+   - differing numbers in names (*SEA STAR 7* vs *SEA STAR 8*).
 
 | Score | Status |
 |---|---|
@@ -42,13 +47,11 @@ Other features:
 - **Telegram bot**: `/check Сергій Щербина 1975` returns the top 3 hits.
 - Polish UI with an English switch.
 
-| False positive argument | Batch |
+| Batch | Escalation report |
 |---|---|
-| ![](docs/false-positive.png) | ![](docs/batch.png) |
+| ![](docs/batch.png) | ![](docs/report.png) |
 | **Sanctions lists** | **Methodology** |
 | ![](docs/lists.png) | ![](docs/methodology.png) |
-| **Escalation report** | |
-| ![](docs/report.png) | |
 
 ## Results on real list entries
 
@@ -83,7 +86,7 @@ Or step by step:
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m app.update          # download + parse EU, UN, OFAC into data/sanctions.db
 .venv/bin/uvicorn app.main:app --port 8000
-.venv/bin/python -m pytest              # 75 tests: transliteration, matching, API
+.venv/bin/python -m pytest              # 79 tests: transliteration, matching, API
 ```
 
 The Telegram bot (optional) runs with `TELEGRAM_BOT_TOKEN=... .venv/bin/python -m app.telegram_bot`.
@@ -107,7 +110,54 @@ The Telegram bot (optional) runs with `TELEGRAM_BOT_TOKEN=... .venv/bin/python -
   - Score = `0.7 × aligned + 0.3 × surname − penalty for unexplained alias tokens`. `token_sort_ratio` serves as a cross-check.
   - Missing patronymics are ignored. A first name may not "match" somebody's patronymic (*Oleksandr ≠ Oleksandrovna*).
   - The surname must reach 85 for *review* and 92 for *match*. Every query token must be present.
-- **Secondary identifiers.** Matching date of birth: +3/+5. A different birth year: −15, flagged as a false-positive argument. Nationality: +3 / −5.
+- **Secondary identifiers:**
+
+  | Identifier | Effect on score |
+  |---|---|
+  | Matching document number | +15, and at least *match* |
+  | Matching date of birth | +3 / +5 |
+  | Different birth year | −15, flagged as a false-positive argument |
+  | Nationality | +3 / −5 |
+  | Gender, entered | +2 / −15 |
+  | Gender, inferred, mismatch | −10 |
+  | Different numbers in the name | −10 |
+
+## API
+
+FastAPI publishes interactive documentation at `/docs`. Example:
+
+```bash
+curl -s localhost:8000/api/search -H 'Content-Type: application/json' \
+  -d '{"name": "Siergiej Ławrow", "birth": "1950", "nationality": "RU", "entity_type": "person", "min_score": 75, "limit": 10}'
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/search` | screening with full explanation |
+| `POST /api/batch` + `GET /api/batch/{id}` | CSV job with progress |
+| `GET /api/batch/{id}.csv` | CSV export |
+| `GET /report/{id}` | escalation report |
+| `POST /api/decision` | analyst decision |
+| `GET /api/audit` | audit log |
+| `GET /api/lists` | list composition |
+| `GET /api/methodology` | transliteration table |
+
+## Compared with similar open-source projects
+
+I reviewed two open-source screening engines and adopted their best scoring ideas:
+
+| Project | What it is | Adopted here |
+|---|---|---|
+| [OpenSanctions yente / nomenklatura](https://www.opensanctions.org/matcher) | Rule-based *logic-v2* matcher: name score plus supporting and contradicting features | gender-mismatch penalty, number-mismatch penalty, identifier match as strong evidence, a higher weight on the family name |
+| [moov-io/watchman](https://github.com/moov-io/watchman) | OFAC/EU/UN screening server in Go | search by document number, `min_score`/`limit` API parameters, periodic background list refresh, per-field debug output |
+
+What this project adds that both lack is the **explicit East Slavic transliteration layer**:
+
+- named national systems, including Polish and Ukrainian official transliteration;
+- equivalent given-name forms across languages;
+- a per-variant explanation of which system produced the hit.
+
+General engines treat cross-script matching as a known weak spot. OpenSanctions documents increased error rates when comparing names across writing systems.
 
 ## Deploy
 

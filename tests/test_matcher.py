@@ -117,3 +117,33 @@ def test_single_word_is_not_a_full_hit_for_people(index):
 def test_single_word_company(index):
     hit = index.search("Kovalchuk Trading", entity_type="entity")["results"][0]
     assert hit["status"] == "match"
+
+
+def test_document_number_is_strong_evidence(index):
+    # name alone is far off, but the passport number (any formatting) identifies the record
+    hit = index.search("Sergiusz Kowal", document="100-000-001")["results"][0]
+    assert hit["source_id"] == "4" and hit["status"] == "match"
+    assert hit["explanation"]["factors"][0]["field"] == "document"
+
+
+def test_gender_explicit_and_inferred(index):
+    hit = next(r for r in index.search("Sergey Lavrov", gender="F")["results"] if r["source_id"] == "4")
+    assert any(f["field"] == "gender" and f["ok"] is False for f in hit["explanation"]["factors"])
+    res = index.search("Евгений Пригожин")             # -ин → male; the female relative is pushed down
+    assert res["gender_inferred"] == "M"
+    lyubov = [r for r in res["results"] if r["source_id"] == "9"]
+    assert not lyubov or lyubov[0]["status"] == "weak"
+
+
+def test_gender_not_inferred_from_ambiguous_surname():
+    from app.matcher import infer_gender
+    from app.translit import name_variants
+    assert infer_gender(name_variants("Олег Щербина")) == ""
+    assert infer_gender(name_variants("Anna Nowakowska")) == "F"
+
+
+def test_number_mismatch_in_names(index):
+    hit = index.search("Sea Star 8", entity_type="any")["results"][0]
+    assert any(f["field"] == "number" for f in hit["explanation"]["factors"])
+    same = index.search("Sea Star 7", entity_type="any")["results"][0]
+    assert same["score"] > hit["score"]

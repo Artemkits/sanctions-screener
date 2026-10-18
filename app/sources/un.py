@@ -1,7 +1,7 @@
 """Parser for the UN Security Council Consolidated List (XML)."""
 import xml.etree.ElementTree as ET
 
-from . import Alias, Entry, ParseResult
+from . import Alias, Entry, ParseResult, make_id, norm_sex
 from .countries import to_iso2
 
 UN_URL = "https://main.un.org/securitycouncil/en/content/un-sc-consolidated-list"
@@ -61,6 +61,13 @@ def _entry(el, etype) -> Entry | None:
     for b in births:
         b.setdefault("place", places[0] if places else "")
 
+    ids = []
+    for doc in el.findall("INDIVIDUAL_DOCUMENT"):
+        d = make_id(_txt(doc, "TYPE_OF_DOCUMENT") or _txt(doc, "TYPE_OF_DOCUMENT2"), _txt(doc, "NUMBER"),
+                    _txt(doc, "ISSUING_COUNTRY") or _txt(doc, "COUNTRY_OF_ISSUE"))
+        if d and d not in ids:
+            ids.append(d)
+
     return Entry(
         source="UN",
         source_id=_txt(el, "REFERENCE_NUMBER") or _txt(el, "DATAID"),
@@ -77,6 +84,8 @@ def _entry(el, etype) -> Entry | None:
             "reference": _txt(el, "REFERENCE_NUMBER"),
             "dataid": _txt(el, "DATAID"),
             "gender": _txt(el, "GENDER"),
+            "sex": norm_sex(_txt(el, "GENDER")),
+            "identifiers": ids,
             "function": "; ".join((v.text or "").strip() for v in el.findall("DESIGNATION/VALUE") if v.text),
         },
     )

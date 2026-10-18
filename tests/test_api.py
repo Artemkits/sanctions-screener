@@ -25,7 +25,7 @@ def test_status_and_lists(client):
     s = client.get("/api/status").json()
     assert s["ready"] and s["lists"]["EU"]["list_date"] == "2026-10-15"
     lists = client.get("/api/lists").json()
-    assert lists["OFAC"]["entries"] == 3 and "by_type" in lists["OFAC"]
+    assert lists["OFAC"]["entries"] == 4 and "by_type" in lists["OFAC"]
 
 
 def test_search_report_decision_flow(client):

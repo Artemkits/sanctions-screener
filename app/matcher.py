@@ -33,6 +33,7 @@ from rapidfuzz import fuzz, process
 
 from .config import MATCH_THRESHOLD, REVIEW_THRESHOLD, SOURCES, WEAK_THRESHOLD
 from .db import connect
+from .sources import norm_id, norm_sex
 from .text import (
     STOPWORDS,
     SURNAME_SUFFIX,
@@ -104,6 +105,8 @@ class Index:
         self.skel_inv: list[list[int]] = []
         self.meta: dict[str, dict] = {}
         self.stats: dict[str, dict] = {}
+        self.doc_index: dict[str, set] = {}
+        self.forms_by_entry: dict[int, list] = {}
         self.built_at = None
         self.build_seconds = 0.0
 
@@ -154,6 +157,9 @@ class Index:
                 "birth_dates": json.loads(r["birth_dates"]), "nationalities": json.loads(r["nationalities"]),
                 "programs": json.loads(r["programs"]), "listed_on": r["listed_on"], "url": r["url"],
             }
+            extra = json.loads(r["extra"] or "{}")
+            entries[r["id"]]["sex"] = extra.get("sex", "")
+            entries[r["id"]]["ids"] = {norm_id(d["number"]): d for d in extra.get("identifiers", [])}
         aliases = {}
         for r in conn.execute("SELECT id, entry_id, name, script, lang, quality FROM aliases"):
             a = dict(r)
@@ -169,6 +175,13 @@ class Index:
                 latin, method = _latin_of(a["name"], a["script"])
                 add_form(a["entry_id"], a["id"], latin.split(), True, f"translit:{method}")
 
+        doc_index, forms_by_entry = {}, {}
+        for e in entries.values():
+            for n in e["ids"]:
+                doc_index.setdefault(n, set()).add(e["id"])
+        for f_id, f in enumerate(forms):
+            forms_by_entry.setdefault(f.entry, []).append(f_id)
+        self.doc_index, self.forms_by_entry = doc_index, forms_by_entry
         self.meta = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta")}
         self.stats = _stats(entries, aliases)
         self.entries, self.aliases, self.forms = entries, aliases, forms
@@ -192,7 +205,7 @@ class Index:
         return {int(v): (float(best[v]), int(a)) for v, a in zip(idx, arg, strict=False)}
 
     def search(self, name: str, birth: str = "", nationality: str = "", entity_type: str = "any",
-               limit: int = 50, min_score: float = WEAK_THRESHOLD) -> dict:
+               limit: int = 50, min_score: float = WEAK_THRESHOLD, gender: str = "", document: str = "") -> dict:
         t0 = time.time()
         # a year or date typed into the name field is treated as the date of birth
         date_tokens = [tk for tk in name.split() if DATE_TOKEN.match(tk)]
@@ -200,7 +213,10 @@ class Index:
             name = " ".join(tk for tk in name.split() if not DATE_TOKEN.match(tk))
             birth = birth or date_tokens[0]
         tvs = [tv for tv in name_variants(name) if tv.variants]
-        q = [tv for tv in tvs if len(tv.variants[0].norm) >= 2 and tv.variants[0].norm not in STOPWORDS]
+        q = [tv for tv in tvs if tv.variants[0].norm.isdigit()
+             or (len(tv.variants[0].norm) >= 2 and tv.variants[0].norm not in STOPWORDS)]
+        if q and all(tv.variants[0].norm.isdigit() for tv in q):
+            q = []
         if not q:
             return self._empty(name, birth, nationality, entity_type, tvs, time.time() - t0)
 
@@ -238,10 +254,29 @@ class Index:
             if prev is None or scored["name_score"] > prev["name_score"]:
                 best_by_entry[form.entry] = scored
 
+        # A matching document number is strong evidence on its own: score those records
+        # even when their names did not make it into the candidate set.
+        doc = norm_id(document)
+        for entry_id in self.doc_index.get(doc, set()) if len(doc) >= 4 else ():
+            entry = self.entries[entry_id]
+            if entity_type != "any" and not _type_ok(entry["entity_type"], entity_type):
+                continue
+            for f_id in self.forms_by_entry.get(entry_id, []):
+                scored = self._score_form(self.forms[f_id], q, q_strings, skel_lists, direct, skel, surname_i, floor=False)
+                prev = best_by_entry.get(entry_id)
+                if scored and (prev is None or scored["name_score"] > prev["name_score"]):
+                    best_by_entry[entry_id] = scored
+
+        sex = norm_sex(gender)
+        inferred = "" if sex else infer_gender(q)
         results = []
         for entry_id, sc in best_by_entry.items():
             entry = self.entries[entry_id]
-            score, factors = _adjust(sc["name_score"], entry, birth, nationality)
+            score, factors = _adjust(sc["name_score"], entry, birth, nationality, sex or inferred, bool(inferred), doc)
+            if sc["explanation"].get("number_mismatch"):
+                factors.append(_factor("number", -10, False, "Różne liczby w nazwie (np. numer statku lub spółki)",
+                                       "Different numbers in the name (e.g. vessel or company number)"))
+                score -= 10
             alias = self.aliases[sc["alias_id"]]
             if alias["quality"] == "weak":
                 score -= 5
@@ -282,6 +317,7 @@ class Index:
             "examples": full_name_examples(tvs),
             "combinations": int(np.prod([max(1, len(tv.variants)) for tv in tvs])),
             "candidates": len(cand),
+            "gender": sex, "gender_inferred": inferred, "document": document,
             "results": results[:limit],
             "total_results": len(results),
             "elapsed_ms": round((time.time() - t0) * 1000),
@@ -294,7 +330,7 @@ class Index:
                 "combinations": 0, "candidates": 0, "results": [], "total_results": 0, "too_short": True,
                 "elapsed_ms": round(elapsed * 1000), "lists": self.list_versions()}
 
-    def _score_form(self, form, q, q_strings, skel_lists, direct, skel, surname_i):
+    def _score_form(self, form, q, q_strings, skel_lists, direct, skel, surname_i, floor=True):
         toks, sks = form.tokens[:MAX_ALIGN_TOKENS], form.skels[:MAX_ALIGN_TOKENS]
         n, m = len(q), len(toks)
         q_patro = [_is_patronymic(tv) for tv in q]
@@ -372,7 +408,10 @@ class Index:
             name_score = _cap(name_score, REVIEW_THRESHOLD - 1)  # surname must match
         elif sur < SURNAME_MATCH_MIN:
             name_score = _cap(name_score, MATCH_THRESHOLD - 1)
-        if name_score < WEAK_THRESHOLD - 15:
+        q_nums = {tv.variants[0].norm for tv in q if tv.variants[0].norm.isdigit()}
+        a_nums = {self.vocab[t] for t in form.tokens if self.vocab[t].isdigit()}
+        number_mismatch = bool(q_nums and a_nums and q_nums.isdisjoint(a_nums))
+        if floor and name_score < WEAK_THRESHOLD - 15:
             return None
 
         token_rows = []
@@ -412,6 +451,7 @@ class Index:
                 "token_sort_ratio": round(tsr, 1),
                 "unmatched_alias_tokens": extra,
                 "penalty": penalty,
+                "number_mismatch": number_mismatch,
             },
         }
 
@@ -535,9 +575,16 @@ def _factor(field: str, effect: int, ok, pl: str, en: str) -> dict:
     return {"field": field, "effect": effect, "ok": ok, "text": pl, "text_en": en}
 
 
-def _adjust(name_score: float, entry: dict, birth: str, nationality: str):
-    """Date of birth and nationality as secondary identifiers."""
+def _adjust(name_score: float, entry: dict, birth: str, nationality: str, sex: str = "",
+            sex_inferred: bool = False, doc: str = ""):
+    """Secondary identifiers: document number, date of birth, nationality, gender."""
     score, factors = name_score, []
+    if doc and doc in entry.get("ids", {}):
+        d = entry["ids"][doc]
+        label = d["type"] + (f", {d['country']}" if d.get("country") else "")
+        score = max(score + 15, MATCH_THRESHOLD)
+        factors.append(_factor("document", 15, True, f"Numer dokumentu zgodny: {d['number']} ({label})",
+                               f"Document number matches: {d['number']} ({label})"))
     year, date = parse_birth(birth)
     births = entry["birth_dates"]
     if year:
@@ -589,7 +636,46 @@ def _adjust(name_score: float, entry: dict, birth: str, nationality: str):
             factors.append(_factor("nationality", -5, False,
                                    f"Inne obywatelstwo: {nat} vs {', '.join(nats)} — argument za false positive",
                                    f"Different nationality: {nat} vs {', '.join(nats)} — points to a false positive"))
+    if sex and entry["entity_type"] == "person" and entry.get("sex"):
+        how_pl = " (wywnioskowana z imienia/nazwiska)" if sex_inferred else ""
+        how_en = " (inferred from the name)" if sex_inferred else ""
+        if entry["sex"] == sex:
+            if not sex_inferred:              # an inferred match adds nothing worth showing
+                score += 2
+                factors.append(_factor("gender", 2, True, "Płeć zgodna", "Gender matches"))
+        else:
+            effect = -10 if sex_inferred else -15
+            score += effect
+            factors.append(_factor("gender", effect, False,
+                                   f"Inna płeć: {sex} vs {entry['sex']}{how_pl} — argument za false positive",
+                                   f"Different gender: {sex} vs {entry['sex']}{how_en} — points to a false positive"))
     return score, factors
+
+
+# "-ина" is left out on purpose: Ukrainian surnames like Щербина are used by men too
+_FEM = re.compile(r"(овна|евна|ична|івна|ївна|ова|ева|ёва|ская|цкая|ська|цька)$")
+_MASC = re.compile(r"(ович|евич|ич|ов|ев|ёв|ин|ын|ский|цкий|ський|цький)$")
+_FEM_LAT = re.compile(r"(ovna|evna|ivna|ichna|ova|eva|skaya|tskaya|ska|cka)$")
+_MASC_LAT = re.compile(r"(ovich|evich|vych|ov|ev|in|yn|sky|skiy|skyi|skii|ski|cki|tskiy)$")
+
+
+def infer_gender(q) -> str:
+    """Conservative M/F guess from Slavic patronymic or surname endings; '' when unsure or conflicting."""
+    votes = set()
+    for tv in q:
+        c = tv.cyrillic
+        lat = tv.variants[0].norm if tv.variants else ""
+        if c and len(c) >= 4:
+            if _FEM.search(c):
+                votes.add("F")
+            elif _MASC.search(c):
+                votes.add("M")
+        elif len(lat) >= 5 and not c:
+            if _FEM_LAT.search(lat):
+                votes.add("F")
+            elif _MASC_LAT.search(lat):
+                votes.add("M")
+    return votes.pop() if len(votes) == 1 else ""
 
 
 # ---------------------------------------------------------------------- singleton

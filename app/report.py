@@ -24,7 +24,7 @@ T = {
         "disclaimer": "Narzędzie demonstracyjne. Nie stanowi podstawy do decyzji compliance. Dane wyłącznie z publicznych list UE, ONZ i OFAC.",
         "saved": "Decyzja zapisana w dzienniku audytu.", "choose": "Wybierz decyzję.",
         "token": "Token zapytania", "variant": "Użyty wariant", "system": "System", "sim": "Podobieństwo",
-        "factors": "Czynniki dodatkowe", "surname": "nazwisko", "rec": "Rekomendacja systemu",
+        "factors": "Czynniki dodatkowe", "surname": "nazwisko", "rec": "Rekomendacja systemu", "gender": "Płeć", "doc": "Nr dokumentu", "inferred": "(wywnioskowana)",
         "rec_match": "możliwe trafienie — eskalacja do Compliance Officer przed kontynuacją relacji",
         "rec_review": "wymagana weryfikacja analityka (porównanie danych identyfikacyjnych)",
         "rec_clear": "brak trafień powyżej progu 75 — brak podstaw do eskalacji",
@@ -45,7 +45,7 @@ T = {
         "weak": "Weak", "disclaimer": "Demo tool. Not a basis for compliance decisions. Data from public EU, UN and OFAC lists only.",
         "saved": "Decision saved to the audit log.", "choose": "Choose a decision.", "token": "Query token",
         "variant": "Variant used", "system": "System", "sim": "Similarity", "factors": "Additional factors",
-        "surname": "surname", "rec": "System recommendation",
+        "surname": "surname", "rec": "System recommendation", "gender": "Gender", "doc": "Document no.", "inferred": "(inferred)",
         "rec_match": "possible match — escalate to the Compliance Officer before continuing the relationship",
         "rec_review": "analyst review required (compare identifying data)",
         "rec_clear": "no hits above 75 — no grounds for escalation",
@@ -145,7 +145,8 @@ def render(rec: dict, decisions: list, lang: str = "pl") -> str:
 
 <section><h2>{t['subject']}</h2><table class="meta">
 <tr><th>{t['name']}</th><td><b>{_e(q.get('name'))}</b></td><th>{t['type']}</th><td>{_e(t.get(q.get('entity_type') or 'any', ''))}</td></tr>
-<tr><th>{t['birth']}</th><td>{_e(q.get('birth') or '—')}</td><th>{t['nat']}</th><td>{_e(q.get('nationality') or '—')}</td></tr></table></section>
+<tr><th>{t['birth']}</th><td>{_e(q.get('birth') or res.get('birth') or '—')}</td><th>{t['nat']}</th><td>{_e(q.get('nationality') or '—')}</td></tr>
+<tr><th>{t['gender']}</th><td>{_e(q.get('gender') or (res.get('gender_inferred') and res['gender_inferred'] + ' ' + t['inferred']) or '—')}</td><th>{t['doc']}</th><td>{_e(q.get('document') or '—')}</td></tr></table></section>
 
 <section><h2>{t['lists']}</h2><table><tr><th>{t['list']}</th><th>{t['version']}</th><th>{t['records']}</th><th>{t['fetched']}</th></tr>{lists_rows}</table></section>
 

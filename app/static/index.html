@@ -66,6 +66,18 @@
             <option value="any" data-i18n="t_any">dowolny</option>
           </select>
         </div>
+        <div class="field">
+          <label for="gender" data-i18n="f_gender">Płeć</label>
+          <select id="gender">
+            <option value="">—</option>
+            <option value="M" data-i18n="g_m">mężczyzna</option>
+            <option value="F" data-i18n="g_f">kobieta</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="document" data-i18n="f_doc">Nr dokumentu</label>
+          <input id="document" maxlength="40" placeholder="paszport / ID / NIP">
+        </div>
         <div class="field actions">
           <button type="submit" class="primary" id="go" data-i18n="check">Sprawdź</button>
           <button type="button" class="linkish" id="reset" data-i18n="new_check" hidden>Nowe sprawdzenie</button>
@@ -90,10 +102,6 @@
             <button class="demo-card" data-q="Wiaczesław Wołodin" data-b="" data-n="">
               <span class="demo-kind review" data-i18n="demo_translit">Tylko dzięki transliteracji</span>
               <span class="demo-name">Wiaczesław Wołodin</span><span class="demo-meta" data-i18n="demo_translit_meta">pisownia polska</span>
-            </button>
-            <button class="demo-card" data-q="Юрий Ковальчук" data-b="1984" data-n="UA">
-              <span class="demo-kind weak" data-i18n="demo_fp">False positive</span>
-              <span class="demo-name">Юрий Ковальчук</span><span class="demo-meta">1984 · UA</span>
             </button>
             <button class="demo-card" data-q="Аляксандр Лукашэнка" data-b="" data-n="">
               <span class="demo-kind match" data-i18n="demo_by">Cyrylica białoruska</span>

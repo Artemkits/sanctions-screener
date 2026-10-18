@@ -37,7 +37,7 @@ const I18N = {
     form_orig: "alias porównany w oryginalnym zapisie", form_translit: "alias w innym alfabecie, porównany po transliteracji",
     open_source: "Otwórz rekord u źródła",
     k_source: "Źródło", k_id: "ID w źródle", k_type: "Typ", k_programs: "Program / podstawa", k_listed: "Data wpisu",
-    k_dob: "Data urodzenia", k_pob: "Miejsce urodzenia", k_nat: "Obywatelstwo", k_function: "Funkcja", k_remarks: "Uwagi", k_link: "Link",
+    k_dob: "Data urodzenia", k_pob: "Miejsce urodzenia", k_nat: "Obywatelstwo", k_function: "Funkcja", k_sex: "Płeć", k_docs: "Dokumenty", k_remarks: "Uwagi", k_link: "Link",
     person: "osoba fizyczna", entity: "podmiot", vessel: "statek", aircraft: "statek powietrzny",
     batch_h: "Sprawdzenie listy klientów",
     batch_p: "Plik CSV z kolumną name (lub imie + nazwisko), opcjonalnie birth i nationality. Separator: przecinek, średnik lub tabulator. Do 300 wierszy.",
@@ -66,6 +66,8 @@ const I18N = {
     letter_not_in: "litera nie występuje w tym języku",
     foot: "Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
     conflict_birth: "inna data urodzenia", conflict_nationality: "inne obywatelstwo", conflict_alias: "słaby alias",
+    conflict_gender: "inna płeć", conflict_number: "inny numer w nazwie",
+    f_gender: "Płeć", g_m: "mężczyzna", g_f: "kobieta", f_doc: "Nr dokumentu", g_inferred: "płeć wywnioskowana z nazwiska",
     loading: "Ładowanie indeksu list…", loading_short: "Ładowanie indeksu…", new_check: "Nowe sprawdzenie",
     short_h: "Za krótkie zapytanie", short_p: "Wpisz pełne imię i nazwisko lub nazwę podmiotu — sama litera albo przedimek (al, bin) nie wystarczą.", error: "Błąd", list_error: "błąd pobierania",
   },
@@ -102,7 +104,7 @@ const I18N = {
     form_orig: "alias compared as written", form_translit: "non-Latin alias compared after transliteration",
     open_source: "Open record at source",
     k_source: "Source", k_id: "Source ID", k_type: "Type", k_programs: "Programme / legal basis", k_listed: "Listed on",
-    k_dob: "Date of birth", k_pob: "Place of birth", k_nat: "Nationality", k_function: "Function", k_remarks: "Remarks", k_link: "Link",
+    k_dob: "Date of birth", k_pob: "Place of birth", k_nat: "Nationality", k_function: "Function", k_sex: "Gender", k_docs: "Documents", k_remarks: "Remarks", k_link: "Link",
     person: "individual", entity: "entity", vessel: "vessel", aircraft: "aircraft",
     batch_h: "Screen a customer list",
     batch_p: "CSV file with a name column (or first_name + last_name), optionally birth and nationality. Comma, semicolon or tab separated. Up to 300 rows.",
@@ -131,6 +133,8 @@ const I18N = {
     letter_not_in: "letter not used in this language",
     foot: "Data: public consolidated lists of the EU (FSF), the UN Security Council and OFAC SDN. Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
     conflict_birth: "different date of birth", conflict_nationality: "different nationality", conflict_alias: "weak alias",
+    conflict_gender: "different gender", conflict_number: "different number in name",
+    f_gender: "Gender", g_m: "male", g_f: "female", f_doc: "Document no.", g_inferred: "gender inferred from the name",
     loading: "Loading list index…", loading_short: "Loading index…", new_check: "New check",
     short_h: "Query too short", short_p: "Enter a full name or an entity name — a single letter or a particle (al, bin) is not enough.", error: "Error", list_error: "download error",
   },
@@ -322,7 +326,8 @@ async function runSearch(e) {
   try {
     last = await getJSON("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, birth: $("#birth").value.trim(), nationality: $("#nat").value,
-        entity_type: $("#etype").value, show_weak: true, analyst: $("#analyst").value.trim() }) });
+        entity_type: $("#etype").value, gender: $("#gender").value, document: $("#document").value.trim(),
+        show_weak: true, analyst: $("#analyst").value.trim() }) });
     renderSearch(last);
   } catch (err) {
     $("#out").hidden = false; $("#intro").hidden = true;
@@ -355,9 +360,10 @@ function renderSearch(res) {
   $("#verdict").className = "verdict " + level;
   $("#verdict").innerHTML = `
     <div><div class="verdict-status">${t("s_" + level)}</div><div class="verdict-title">${t("v_" + level)}</div></div>
-    <div><div class="verdict-query">${esc(res.query)}${res.birth ? " · " + esc(res.birth) : ""}${res.nationality ? " · " + esc(res.nationality) : ""}</div>
+    <div><div class="verdict-query">${esc(res.query)}${res.birth ? " · " + esc(res.birth) : ""}${res.nationality ? " · " + esc(res.nationality) : ""}${res.gender ? " · " + t("g_" + res.gender.toLowerCase()) : ""}${res.document ? " · " + esc(res.document) : ""}</div>
       <div class="verdict-meta"><span>${fmt(res.combinations)} ${t("combos")} ${t("in_ms", { ms: res.elapsed_ms })}</span>
-      <span>${t("lists_checked")} ${esc(dates)}</span></div></div>
+      <span>${t("lists_checked")} ${esc(dates)}</span>
+      ${res.gender_inferred ? `<span>${t("g_inferred")}: ${t("g_" + res.gender_inferred.toLowerCase())}</span>` : ""}</div></div>
     <div class="verdict-counts">
       <div class="count match"><b>${counts.match}</b><span>${t("match")}</span></div>
       <div class="count review"><b>${counts.review}</b><span>${t("review")}</span></div>
@@ -464,6 +470,8 @@ function cardRecord(d, r) {
     ${kv("k_source", esc(d.source_name))}${kv("k_id", esc(d.source_id + ref))}${kv("k_programs", esc(d.programs.join(", ")))}
     ${kv("k_listed", esc(d.listed_on))}${kv("k_dob", esc(dob(d.birth_dates)))}${kv("k_pob", esc(pob))}
     ${kv("k_nat", esc(d.nationalities.map((n) => n.name + (n.iso2 ? ` (${n.iso2})` : "")).join(", ")))}
+    ${kv("k_sex", d.extra.sex ? t("g_" + d.extra.sex.toLowerCase()) : "")}
+    ${kv("k_docs", (d.extra.identifiers || []).slice(0, 8).map((x) => `${esc(x.type)}: <span class="alias-cell">${esc(x.number)}</span>${x.country ? " (" + esc(x.country) + ")" : ""}`).join("<br>"))}
     ${kv("k_function", esc(d.extra.function))}${kv("k_remarks", esc(d.remarks))}</dl>
     <h3>${t("aliases")} (${d.aliases.length})</h3><ul class="aliases">${d.aliases.map((a) =>
       `<li class="${a.quality === "weak" ? "q-weak" : ""} ${a.name === r.matched_alias ? "hl" : ""}">${esc(a.name)} <span class="muted">${esc(a.lang || "")}</span></li>`).join("")}</ul>
@@ -473,8 +481,8 @@ function cardRecord(d, r) {
 
 function resetSearch() {
   last = null;
-  ["#name", "#birth"].forEach((x) => { $(x).value = ""; });
-  $("#nat").value = "";
+  ["#name", "#birth", "#document"].forEach((x) => { $(x).value = ""; });
+  $("#nat").value = ""; $("#gender").value = "";
   $("#out").hidden = true; $("#intro").hidden = false; $("#reset").hidden = true;
   renderIntroFan(); $("#name").focus();
 }
@@ -656,7 +664,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   $$(".demo-card").forEach((c) => c.addEventListener("click", () => {
-    $("#name").value = c.dataset.q; $("#birth").value = c.dataset.b || ""; $("#nat").value = c.dataset.n || ""; runSearch();
+    $("#name").value = c.dataset.q; $("#birth").value = c.dataset.b || ""; $("#nat").value = c.dataset.n || "";
+    $("#gender").value = ""; $("#document").value = ""; runSearch();
   }));
   $("#batch").addEventListener("submit", runBatch);
   $("#csv").addEventListener("change", () => { $("#drop-file").textContent = $("#csv").files[0]?.name || ""; });

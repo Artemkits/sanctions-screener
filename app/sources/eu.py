@@ -2,7 +2,7 @@
 import xml.etree.ElementTree as ET
 
 from ..text import detect_script, norm_latin
-from . import Alias, Entry, ParseResult
+from . import Alias, Entry, ParseResult, make_id, norm_sex
 from .countries import to_iso2
 
 NS = "{http://eu.europa.ec/fpi/fsd/export}"
@@ -83,6 +83,13 @@ def parse(path) -> ParseResult:
             if iso and not any(n["iso2"] == iso for n in nats):
                 nats.append({"iso2": iso, "name": c.get("countryDescription") or iso})
 
+        ids = []
+        for ident in el.findall(_t("identification")):
+            d = make_id(ident.get("identificationTypeDescription") or ident.get("identificationTypeCode") or "",
+                        ident.get("number") or ident.get("latinNumber") or "",
+                        ident.get("countryDescription") if ident.get("countryDescription") != "UNKNOWN" else "")
+            if d and d not in ids:
+                ids.append(d)
         remarks = " ".join((r.text or "").strip() for r in el.findall(_t("remark")) if r.text)
         functions = sorted({na.get("function").strip() for na in el.findall(_t("nameAlias")) if (na.get("function") or "").strip()})
         genders = {na.get("gender") for na in el.findall(_t("nameAlias")) if na.get("gender")}
@@ -104,6 +111,8 @@ def parse(path) -> ParseResult:
                 "un_id": el.get("unitedNationId") or "",
                 "function": "; ".join(functions)[:600],
                 "gender": "/".join(sorted(genders)),
+                "sex": norm_sex(next(iter(genders))) if len(genders) == 1 else "",
+                "identifiers": ids,
             },
         ))
         el.clear()

@@ -13,6 +13,8 @@ ENTRIES = [
      [{"year": 1998}], [{"iso2": "RU", "name": "Russia"}]),
     ("UN", "4", "person", "Sergei Viktorovich LAVROV", ["Sergei Viktorovich LAVROV", "Sergey LAVROV"],
      [{"date": "1950-03-21", "year": 1950}], [{"iso2": "RU", "name": "Russia"}]),
+    ("EU", "9", "person", "Lyubov Valentinovna PRIGOZHINA", ["Lyubov Valentinovna PRIGOZHINA"], [], []),
+    ("OFAC", "10", "vessel", "SEA STAR 7", ["SEA STAR 7"], [], []),
     ("EU", "5", "person", "Yuriy Valentinovich KOVALCHUK", ["Yuriy Valentinovich KOVALCHUK", "Юрий Валентинович КОВАЛЬЧУК"],
      [{"date": "1951-07-25", "year": 1951}], [{"iso2": "RU", "name": "Russia"}]),
     ("EU", "6", "person", "Tatiana Aleksandrovna KOVALCHUK", ["Tatiana Aleksandrovna KOVALCHUK"], [], []),
@@ -22,12 +24,20 @@ ENTRIES = [
 ]
 
 
+EXTRA = {
+    "4": {"sex": "M", "identifiers": [{"type": "Passport", "number": "100 000 001", "country": "Russia"}]},
+    "2": {"sex": "M"},
+    "9": {"sex": "F"},
+}
+
+
 def make_db(path):
     conn = connect(path)
     for src, sid, et, primary, aliases, dob, nat in ENTRIES:
         cur = conn.execute("INSERT INTO entries (source, source_id, entity_type, primary_name, birth_dates, nationalities,"
-                           " programs, url) VALUES (?,?,?,?,?,?,?,?)",
-                           (src, sid, et, primary, dumps(dob), dumps(nat), dumps(["TEST"]), "https://example.org"))
+                           " programs, url, extra) VALUES (?,?,?,?,?,?,?,?,?)",
+                           (src, sid, et, primary, dumps(dob), dumps(nat), dumps(["TEST"]), "https://example.org",
+                            dumps(EXTRA.get(sid, {}))))
         for a in aliases:
             conn.execute("INSERT INTO aliases (entry_id, name, script, lang, quality) VALUES (?,?,?,?,?)",
                          (cur.lastrowid, a, detect_script(a), "", "strong"))

@@ -58,7 +58,11 @@ class SearchIn(BaseModel):
     birth: str = Field("", max_length=20)
     nationality: str = Field("", max_length=2)
     entity_type: str = Field("person", pattern="^(person|entity|any)$")
+    gender: str = Field("", pattern="^(|M|F)$")
+    document: str = Field("", max_length=40)
     show_weak: bool = True
+    min_score: float | None = Field(None, ge=0, le=100)
+    limit: int = Field(50, ge=1, le=200)
     analyst: str = Field("", max_length=80)
 
 
@@ -117,12 +121,14 @@ def countries():
 @app.post("/api/search")
 def search(body: SearchIn):
     ix = get_index()
-    res = ix.search(body.name, birth=body.birth, nationality=body.nationality.upper(),
-                    entity_type=body.entity_type, min_score=WEAK_THRESHOLD if body.show_weak else REVIEW_THRESHOLD)
+    min_score = body.min_score if body.min_score is not None else (WEAK_THRESHOLD if body.show_weak else REVIEW_THRESHOLD)
+    res = ix.search(body.name, birth=body.birth, nationality=body.nationality.upper(), entity_type=body.entity_type,
+                    min_score=min_score, limit=body.limit, gender=body.gender, document=body.document)
     counts = {s: sum(1 for r in res["results"] if r["status"] == s) for s in ("match", "review", "weak")}
     res["search_id"] = audit.log(
         "search", body.analyst,
-        {"name": body.name, "birth": body.birth, "nationality": body.nationality, "entity_type": body.entity_type},
+        {"name": body.name, "birth": body.birth, "nationality": body.nationality, "entity_type": body.entity_type,
+         "gender": body.gender, "document": body.document},
         {"top_score": res["results"][0]["score"] if res["results"] else None, **counts,
          "elapsed_ms": res["elapsed_ms"]},
         payload=res)
