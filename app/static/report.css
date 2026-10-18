@@ -1,0 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap");
+:root { --ink:#0f1b2d; --navy:#12305b; --rule:#d7dce3; --muted:#5b6675; --red:#b42318; --amber:#8a4b00; }
+body { margin:0; background:#fff; color:var(--ink); font:13.5px/1.45 "IBM Plex Sans", Arial, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 28px 32px 48px; }
+.toolbar { background:var(--navy); padding:10px 32px; display:flex; gap:16px; align-items:center; }
+.toolbar button { background:#fff; color:var(--navy); border:0; padding:6px 14px; font-weight:600; cursor:pointer; border-radius:2px; }
+.toolbar a { color:#fff; }
+.brand { font:600 12px "IBM Plex Sans Condensed", Arial; letter-spacing:.12em; color:var(--navy); }
+h1 { font:600 22px "IBM Plex Sans Condensed", Arial; margin:4px 0 14px; border-bottom:3px solid var(--navy); padding-bottom:10px; }
+h2 { font:600 13px "IBM Plex Sans Condensed", Arial; text-transform:uppercase; letter-spacing:.08em; color:var(--navy); margin:24px 0 8px; }
+h4 { margin: 14px 0 6px; font-size: 13.5px; }
+table { width:100%; border-collapse:collapse; margin-bottom:6px; }
+th, td { text-align:left; padding:5px 8px; border:1px solid var(--rule); vertical-align:top; }
+th { background:#f5f7fa; font-weight:600; font-size:12px; }
+table.meta th { width: 18%; }
+.num { font-family:"IBM Plex Mono", monospace; text-align:right; }
+.url { word-break: break-all; font-size: 11.5px; }
+.badge { font-weight:600; font-size:12px; }
+.badge.match { color:var(--red); } .badge.review { color:var(--amber); } .badge.weak { color:var(--muted); }
+.muted { color:var(--muted); }
+.examples { columns:2; font-family:"IBM Plex Mono", monospace; font-size:12.5px; }
+.small { font-size:12px; color:var(--muted); }
+.why { page-break-inside: avoid; }
+.decision label { display:block; margin:6px 0; font-size:14px; }
+textarea { width:100%; border:1px solid #b9c1cc; font:inherit; padding:8px; box-sizing:border-box; }
+.sign { display:flex; justify-content:space-between; gap:20px; margin-top:28px; flex-wrap:wrap; }
+.decision button { background:var(--navy); color:#fff; border:0; padding:8px 16px; font-weight:600; cursor:pointer; border-radius:2px; }
+footer { margin-top:32px; padding-top:10px; border-top:1px solid var(--rule); color:var(--amber); font-size:12px; }
+@media print { .no-print { display:none !important; } main { padding:0; } body { font-size:11.5px; } a { color:inherit; text-decoration:none; } }

@@ -1,0 +1,10 @@
+# Alternative deployment: Render Blueprint (free plan is slow: 0.1 CPU, sleeps after 15 min)
+services:
+  - type: web
+    name: sanctions-screener
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: REFRESH_HOURS
+        value: "24"

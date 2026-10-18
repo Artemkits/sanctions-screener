@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctions Screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <div class="brand-name">Sanctions Screener</div>
+      <div class="brand-sub" data-i18n="tagline">Screening UE · ONZ · OFAC z uwzględnieniem transliteracji</div>
+    </div>
+  </div>
+  <div class="top-right">
+    <label class="analyst"><span data-i18n="analyst">Analityk</span>
+      <input id="analyst" type="text" maxlength="80" placeholder="j.kowalski"></label>
+    <div class="lang" role="group" aria-label="Język / Language">
+      <button data-lang="pl" class="on">PL</button><button data-lang="en">EN</button>
+    </div>
+  </div>
+</header>
+
+<div class="lists" id="lists" aria-live="polite"></div>
+
+<div class="disclaimer" data-i18n="disclaimer">Narzędzie demonstracyjne. Nie stanowi podstawy do decyzji compliance.</div>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="screen" class="on" data-i18n="tab_screen">Screening</button>
+  <button role="tab" data-tab="batch" data-i18n="tab_batch">Batch (CSV)</button>
+  <button role="tab" data-tab="audit" data-i18n="tab_audit">Dziennik sprawdzeń</button>
+</nav>
+
+<main>
+  <!-- SCREENING -->
+  <section id="tab-screen" class="tab">
+    <form id="search" class="search" autocomplete="off">
+      <div class="field wide">
+        <label for="name" data-i18n="f_name">Imię i nazwisko / nazwa *</label>
+        <input id="name" required maxlength="200" placeholder="Сергій Щербина · Siergiej Ławrow · Yevgeniy Prigozhin">
+      </div>
+      <div class="field">
+        <label for="birth" data-i18n="f_birth">Data urodzenia</label>
+        <input id="birth" maxlength="20" placeholder="1961 / 01.06.1961">
+      </div>
+      <div class="field">
+        <label for="nat" data-i18n="f_nat">Obywatelstwo</label>
+        <select id="nat"><option value="">—</option></select>
+      </div>
+      <div class="field">
+        <label for="etype" data-i18n="f_type">Typ</label>
+        <select id="etype">
+          <option value="person" data-i18n="t_person">osoba fizyczna</option>
+          <option value="entity" data-i18n="t_entity">podmiot</option>
+          <option value="any" data-i18n="t_any">dowolny</option>
+        </select>
+      </div>
+      <div class="field actions">
+        <button type="submit" class="primary" data-i18n="check">Sprawdź</button>
+      </div>
+    </form>
+
+    <div id="out" hidden>
+      <div class="summary" id="summary"></div>
+
+      <details class="variants" id="variants">
+        <summary><span data-i18n="variants_title">Wygenerowane warianty transliteracji</span> <span class="muted" id="variants-count"></span></summary>
+        <div id="variants-body"></div>
+      </details>
+
+      <div class="results-head">
+        <h2 data-i18n="results">Wyniki</h2>
+        <div class="results-tools">
+          <label class="toggle"><input type="checkbox" id="weak"> <span data-i18n="show_weak">pokaż słabe (&lt; 75)</span></label>
+          <a id="report" class="button" target="_blank" rel="noopener" data-i18n="report">Raport do eskalacji</a>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="results" id="results">
+          <thead><tr>
+            <th data-i18n="c_score">Wynik</th><th data-i18n="c_status">Status</th><th data-i18n="c_listed">Nazwa na liście</th>
+            <th data-i18n="c_alias">Dopasowany alias</th><th data-i18n="c_source">Źródło</th><th data-i18n="c_program">Program</th>
+            <th data-i18n="c_dob">Data ur.</th><th data-i18n="c_link">Rekord</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="empty" id="empty" hidden></p>
+    </div>
+
+    <div class="intro" id="intro">
+      <h2 data-i18n="intro_h">Jedno nazwisko — wiele zapisów</h2>
+      <p data-i18n="intro_p">Сергій Щербина w różnych dokumentach to Serhii Shcherbyna, Sergiy Shcherbina, Siergiej Szczerbina albo Sergej Schtscherbina. Narzędzie generuje te warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w listach sankcyjnych UE, ONZ i OFAC.</p>
+      <div class="try"><span data-i18n="try">Przykłady:</span>
+        <button class="chip" data-q="Евгений Пригожин" data-b="1961">Евгений Пригожин, 1961</button>
+        <button class="chip" data-q="Siergiej Ławrow">Siergiej Ławrow</button>
+        <button class="chip" data-q="Аляксандр Лукашэнка">Аляксандр Лукашэнка</button>
+        <button class="chip" data-q="Юрий Ковальчук" data-b="1980">Юрий Ковальчук, 1980</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BATCH -->
+  <section id="tab-batch" class="tab" hidden>
+    <form id="batch" class="batch-form">
+      <div>
+        <h2 data-i18n="batch_h">Sprawdzenie listy klientów</h2>
+        <p class="muted" data-i18n="batch_p">Plik CSV z kolumną name (lub imie + nazwisko), opcjonalnie birth i nationality. Do 300 wierszy.</p>
+        <a href="/static/sample_batch.csv" download data-i18n="batch_sample">Pobierz przykładowy plik</a>
+      </div>
+      <div class="batch-controls">
+        <input type="file" id="csv" accept=".csv,text/csv" required>
+        <select id="batch-type">
+          <option value="person" data-i18n="t_person">osoba fizyczna</option>
+          <option value="any" data-i18n="t_any">dowolny</option>
+        </select>
+        <button class="primary" type="submit" data-i18n="batch_run">Sprawdź plik</button>
+      </div>
+    </form>
+    <div id="batch-out" hidden>
+      <div class="results-head">
+        <div class="summary" id="batch-summary"></div>
+        <a id="batch-csv" class="button" data-i18n="batch_dl">Pobierz wyniki (CSV)</a>
+      </div>
+      <div class="table-wrap">
+        <table class="results" id="batch-table">
+          <thead><tr><th>#</th><th data-i18n="c_name">Imię i nazwisko</th><th data-i18n="f_birth">Data urodzenia</th>
+            <th data-i18n="c_status">Status</th><th data-i18n="c_score">Wynik</th><th data-i18n="c_best">Najlepsze trafienie</th>
+            <th data-i18n="c_source">Źródło</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUDIT -->
+  <section id="tab-audit" class="tab" hidden>
+    <div class="results-head"><h2 data-i18n="audit_h">Dziennik sprawdzeń</h2>
+      <button class="button" id="audit-refresh" data-i18n="refresh">Odśwież</button></div>
+    <div class="table-wrap">
+      <table class="results" id="audit-table">
+        <thead><tr><th>#</th><th data-i18n="a_time">Czas</th><th data-i18n="analyst">Analityk</th><th data-i18n="a_action">Akcja</th>
+          <th data-i18n="a_query">Zapytanie</th><th data-i18n="a_result">Wynik</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- MATCH CARD -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="card" id="card" hidden role="dialog" aria-modal="true" aria-labelledby="card-title">
+  <button class="close" id="card-close" aria-label="Zamknij">×</button>
+  <div id="card-body"></div>
+</aside>
+
+<footer class="foot">
+  <span data-i18n="foot">Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. To nie jest system komercyjny (World-Check, Dow Jones).</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

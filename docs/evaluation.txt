@@ -1,0 +1,27 @@
+query                         ours  base    ms  status    best hit (list) / matched alias
+Евгений Пригожин 1961          100    91   341  match     Yevgeniy Viktorovich PRIGOZHIN (EU) / Jewgienij Prigożyn
+                             exact (Russian Cyrillic) + DOB
+Wiaczesław Wołodin              97    61   123  match     Vyacheslav Victorovich VOLODIN (OFAC) / Vyacheslav Victorovich VOLODIN
+                             Polish spelling — found only through transliteration
+Ramzan Kadyrow                  99    69   172  match     Ramzan Akhmadovitch KADYROV (EU) / Ramzan Achmatovitj KADYROV
+                             Polish spelling — found only through transliteration
+Aleksiej Miller                 99    69   182  match     Alexey Borisovich MILLER (OFAC) / Alexey Borisovich MILLER
+                             Polish spelling — found only through transliteration
+Ołeksandr Chodakowski           96    72   214  match     Alexander KHODAKOVSKY (EU) / Олександр Сергійович ХОДАКОВСЬКИЙ
+                             Polish spelling of a Ukrainian name
+Ołeh Cariow                    100    73   197  match     Oleg Tsariov (EU) / Oleg Tsariov
+                             Polish c = ts
+Siergiej Ławrow                100    76   246  match     Sergei Viktorovich LAVROV (OFAC) / Sergey LAVROV
+                             Polish press spelling
+Сергій Цеков                   100    92   373  match     Sergey Pavlovych TSEKOV (EU) / Siergiej Cekow
+                             Ukrainian Cyrillic, list has Russian form
+Аляксандр Лукашэнка             99    80   428  match     Alexandr Grigorievich LUKASHENKO (EU) / Александр Григорьевич ЛУКАШЕНКО
+                             Belarusian Cyrillic, -енка ↔ -енко
+Юрий Ковальчук 1951 RU         100    83   230  match     Yuri Valentinovich KOVALCHUK (OFAC) / Yuri Valentinovich KOVALCHUK
+                             exact + DOB + nationality
+Юрий Ковальчук 1984 UA          84    83   318  review    Yuriy Valentinovich KOVALCHUK (EU) / Юрий Валентинович КОВАЛЬЧУК
+                             same name, other DOB/nationality → false positive
+Siergiej Iwanow 1990 PL         84    81   315  review    Sergei Borisovich IVANOV (EU) / Сергей Борисович Иванов
+                             common name → false positive
+Jan Kowalski 1985 PL            65    67   477  weak      Andrey KOVALENKO (OFAC) / Andrey KOVALENKO
+                             clean customer
