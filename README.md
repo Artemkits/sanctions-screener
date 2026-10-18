@@ -1,5 +1,9 @@
 # Sanctions Screener: transliteration-aware name screening
 
+[![tests](https://github.com/Artemkits/sanctions-screener/actions/workflows/tests.yml/badge.svg)](https://github.com/Artemkits/sanctions-screener/actions/workflows/tests.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-12305b)
+![License: MIT](https://img.shields.io/badge/license-MIT-12305b)
+
 Screens a person or company name against six sanctions lists: the official **EU**, **UN** and **OFAC** lists, plus the **Polish MSWiA** list, the **UK FCDO** list and the **Ukrainian NSDC** register. It handles the main source of missed hits and false alerts for clients from Ukraine, Russia and Belarus: **one name can be spelled many different ways in Latin script.**
 
 ![Demo](docs/demo.gif)
