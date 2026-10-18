@@ -174,7 +174,7 @@ General engines treat cross-script matching as a known weak spot. OpenSanctions 
 The free option with enough CPU is **Hugging Face Spaces (Docker)**: 2 vCPU and 16 GB RAM, no credit card.
 
 ```bash
-pip install huggingface_hub && huggingface-cli login
+pip install "huggingface_hub[cli]" && hf auth login
 scripts/deploy_hf.sh <your-hf-username>
 ```
 
