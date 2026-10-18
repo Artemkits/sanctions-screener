@@ -1,0 +1,14 @@
+name: keep demo awake
+
+# The free Render instance sleeps after 15 minutes without traffic; a light ping
+# every 14 minutes keeps the live demo responsive (one service fits the free 750 h/month).
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS -m 90 https://sanctions-screener-zccz.onrender.com/healthz || true

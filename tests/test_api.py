@@ -87,3 +87,8 @@ def test_static_pages(client):
     assert client.get("/").status_code == 200
     assert client.get("/static/app.js").status_code == 200
     assert client.get("/healthz").json()["ok"]
+
+
+def test_head_requests(client):
+    assert client.head("/").status_code == 200
+    assert client.head("/healthz").status_code == 200

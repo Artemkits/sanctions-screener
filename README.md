@@ -4,6 +4,8 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-12305b)
 ![License: MIT](https://img.shields.io/badge/license-MIT-12305b)
 
+**Live demo: [sanctions-screener-zccz.onrender.com](https://sanctions-screener-zccz.onrender.com)** (free hosting; if it has been idle, the first load can take up to a minute)
+
 Screens a person or company name against five sanctions lists: the official **EU**, **UN** and **OFAC** lists, plus the **Polish MSWiA** list and the **UK FCDO** list. It handles the main source of missed hits and false alerts for clients from Ukraine, Russia and Belarus: **one name can be spelled many different ways in Latin script.**
 
 ![Demo](docs/demo.gif)

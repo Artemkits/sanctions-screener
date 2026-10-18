@@ -75,7 +75,7 @@ class DecisionIn(BaseModel):
     entry_ids: list[int] = []
 
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def index_page():
     return FileResponse(STATIC / "index.html")
 
@@ -238,6 +238,6 @@ def admin_update(request: Request):
     return result
 
 
-@app.get("/healthz", include_in_schema=False)
+@app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
 def healthz():
     return JSONResponse({"ok": True, "ready": index_ready()})
