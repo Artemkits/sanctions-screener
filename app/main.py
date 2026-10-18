@@ -82,7 +82,7 @@ def index_page():
 
 def _meta_from_db() -> dict:
     conn = connect()
-    rows = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta")}
+    rows = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta") if r["source"] in SOURCES}
     conn.close()
     return {s: {k: rows.get(s, {}).get(k) for k in ("list_date", "fetched_at", "record_count", "alias_count", "status")}
             for s in SOURCES}

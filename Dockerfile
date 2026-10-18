@@ -9,7 +9,11 @@ COPY --chown=app:app . .
 RUN mkdir -p /app/data && chown app:app /app/data
 USER app
 
-ENV DATA_DIR=/app/data PORT=7860 PYTHONUNBUFFERED=1 AUTO_REFRESH_HOURS=24
+# Render and other hosts pass service variables as build args
+ARG ENABLED_SOURCES=""
+ARG AUTO_REFRESH_HOURS=24
+ENV DATA_DIR=/app/data PORT=7860 PYTHONUNBUFFERED=1 \
+    ENABLED_SOURCES=$ENABLED_SOURCES AUTO_REFRESH_HOURS=$AUTO_REFRESH_HOURS
 # Lists are downloaded at build time so the first request is fast;
 # start.sh refreshes them when the container restarts and the data is stale.
 RUN python -m app.update || true

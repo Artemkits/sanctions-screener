@@ -1,10 +1,17 @@
-# Alternative deployment: Render Blueprint (free plan is slow: 0.1 CPU, sleeps after 15 min)
+# Render Blueprint — free plan (512 MB RAM, 0.1 CPU, sleeps after 15 min idle).
+# Four lists fit comfortably into 512 MB; all six need ~1 GB (use a VPS for that).
+# Lists are downloaded and indexed at build time; use "Manual Deploy" to refresh them.
 services:
   - type: web
     name: sanctions-screener
     runtime: docker
     plan: free
+    autoDeploy: true
     healthCheckPath: /healthz
     envVars:
-      - key: REFRESH_HOURS
-        value: "24"
+      - key: ENABLED_SOURCES
+        value: EU,UN,OFAC,PL
+      - key: REFRESH_HOURS          # never re-download on a cold start (keeps wake-up fast)
+        value: "100000"
+      - key: AUTO_REFRESH_HOURS     # no in-process refresh: a rebuild would not fit in 512 MB
+        value: "0"

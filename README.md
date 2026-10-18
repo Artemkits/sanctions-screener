@@ -171,14 +171,7 @@ General engines treat cross-script matching as a known weak spot. OpenSanctions 
 
 ## Deploy
 
-The free option with enough CPU is **Hugging Face Spaces (Docker)**: 2 vCPU and 16 GB RAM, no credit card.
-
-```bash
-pip install "huggingface_hub[cli]" && hf auth login
-scripts/deploy_hf.sh <your-hf-username>
-```
-
-The Space builds the `Dockerfile`, downloads the lists during the build and refreshes them on restart if they are older than 24 h.
+**Render (free, no credit card).** Sign in to [render.com](https://render.com) with GitHub, then go to **New → Blueprint** and pick this repository. `render.yaml` configures everything else. The free plan has 512 MB RAM and sleeps after 15 minutes idle, so it runs four lists: EU, UN, OFAC and PL MSWiA. The first request after a sleep takes about a minute.
 
 **Any Linux server** (Ubuntu 22.04+ / Debian 12+, about 1 GB RAM):
 
@@ -196,7 +189,7 @@ The script runs these steps over SSH:
 
 To update later, run the same command again.
 
-`render.yaml` is included as an alternative. Render's free plan works but is slow for this workload: 0.1 CPU, and the service sleeps after 15 minutes.
+Hugging Face Spaces also works with the same `Dockerfile` (`scripts/deploy_hf.sh`), but Docker Spaces now require a PRO subscription.
 
 ## Limitations
 

@@ -123,13 +123,14 @@ class Index:
     def load_or_build(self):
         """Load a pickled index if it matches the current database, otherwise build and save one."""
         db = Path(DB_PATH)
-        cache = db.with_suffix(".index.pkl")
+        cache = db.with_name(f"{db.stem}.index-{'-'.join(sorted(SOURCES)).lower()}.pkl")
         sig = None
         if db.exists():
             # keyed on list versions, not on the file: the audit log lives in the same database
             conn = connect()
             meta = tuple(tuple(r) for r in conn.execute(
-                "SELECT source, fetched_at, record_count, alias_count FROM source_meta ORDER BY source"))
+                "SELECT source, fetched_at, record_count, alias_count FROM source_meta ORDER BY source")
+                if r["source"] in SOURCES)
             conn.close()
             sig = (self.CACHE_VERSION, tuple(sorted(SOURCES)), meta)
         if sig and cache.exists():
@@ -194,7 +195,9 @@ class Index:
                     skel_inv[s].append(f_id)
 
         entries = {}
-        for r in conn.execute("SELECT * FROM entries"):
+        enabled = tuple(SOURCES)          # lists switched off via ENABLED_SOURCES are not indexed
+        marks = ",".join("?" * len(enabled))
+        for r in conn.execute(f"SELECT * FROM entries WHERE source IN ({marks})", enabled):
             entries[r["id"]] = {
                 "id": r["id"], "source": r["source"], "source_id": r["source_id"],
                 "entity_type": r["entity_type"], "primary_name": r["primary_name"],
@@ -206,6 +209,8 @@ class Index:
             entries[r["id"]]["ids"] = {norm_id(d["number"]): d for d in extra.get("identifiers", [])}
         aliases = {}
         for r in conn.execute("SELECT id, entry_id, name, script, lang, quality FROM aliases"):
+            if r["entry_id"] not in entries:
+                continue
             a = dict(r)
             aliases[a["id"]] = a
             if a["script"] == "cyrillic":
@@ -226,7 +231,7 @@ class Index:
         for f_id, f in enumerate(forms):
             forms_by_entry.setdefault(f.entry, []).append(f_id)
         self.doc_index, self.forms_by_entry = doc_index, forms_by_entry
-        self.meta = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta")}
+        self.meta = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta") if r["source"] in SOURCES}
         self.stats = _stats(entries, aliases)
         self.entries, self.aliases, self.forms = entries, aliases, forms
         self.vocab, self.skel_vocab, self.inv, self.skel_inv = vocab, skel_vocab, inv, skel_inv
