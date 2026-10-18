@@ -61,6 +61,11 @@ PATRONYMIC_DISCOUNT = 0.75
 SURNAME_REVIEW_MIN = 85    # surname similarity below this → never above "weak"
 SURNAME_MATCH_MIN = 92     # surname similarity below this → never a full "match"
 
+DATE_TOKEN = re.compile(r"^(\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{4}-\d{1,2}-\d{1,2})$")
+# legal-form words of company names — unmatched ones cost no more than a patronymic
+LEGAL_FORMS = {"company", "co", "ltd", "limited", "llc", "ooo", "oao", "zao", "pao", "ao", "pjsc", "jsc", "ojsc",
+               "cjsc", "open", "joint", "stock", "public", "closed", "inc", "corp", "corporation", "gmbh", "sa", "ag",
+               "plc", "fze", "llp", "sp", "z", "o", "limited liability", "obshchestvo", "s", "de", "rl", "cv"}
 CYR_SURNAME = re.compile(r"(ов|ев|ёв|ин|ын|ова|ева|ина|ына|енко|енка|эн?ка|ук|юк|чук|ский|цкий|ський|цький|ская|ська|ич|іч|ко|як|ак)$")
 
 
@@ -189,10 +194,15 @@ class Index:
     def search(self, name: str, birth: str = "", nationality: str = "", entity_type: str = "any",
                limit: int = 50, min_score: float = WEAK_THRESHOLD) -> dict:
         t0 = time.time()
-        tvs = name_variants(name)
-        q = [tv for tv in tvs if norm_latin(tv.original) not in STOPWORDS] or tvs
+        # a year or date typed into the name field is treated as the date of birth
+        date_tokens = [tk for tk in name.split() if DATE_TOKEN.match(tk)]
+        if date_tokens:
+            name = " ".join(tk for tk in name.split() if not DATE_TOKEN.match(tk))
+            birth = birth or date_tokens[0]
+        tvs = [tv for tv in name_variants(name) if tv.variants]
+        q = [tv for tv in tvs if len(tv.variants[0].norm) >= 2 and tv.variants[0].norm not in STOPWORDS]
         if not q:
-            return {"query": name, "results": [], "variants": [], "examples": [], "elapsed_ms": 0}
+            return self._empty(name, birth, nationality, entity_type, tvs, time.time() - t0)
 
         q_strings, direct, skel = [], [], []
         for tv in q:
@@ -278,6 +288,12 @@ class Index:
             "lists": self.list_versions(),
         }
 
+    def _empty(self, name, birth, nationality, entity_type, tvs, elapsed):
+        return {"query": name, "birth": birth, "nationality": nationality, "entity_type": entity_type,
+                "languages": name_languages(tvs), "variants": [tv.to_dict() for tv in tvs], "examples": [],
+                "combinations": 0, "candidates": 0, "results": [], "total_results": 0, "too_short": True,
+                "elapsed_ms": round(elapsed * 1000), "lists": self.list_versions()}
+
     def _score_form(self, form, q, q_strings, skel_lists, direct, skel, surname_i):
         toks, sks = form.tokens[:MAX_ALIGN_TOKENS], form.skels[:MAX_ALIGN_TOKENS]
         n, m = len(q), len(toks)
@@ -323,7 +339,7 @@ class Index:
             if j in matched_cols:
                 continue
             tok = self.vocab[form.tokens[j]]
-            if tok in STOPWORDS or looks_like_patronymic(tok):
+            if tok in STOPWORDS or tok in LEGAL_FORMS or looks_like_patronymic(tok):
                 penalty += 1.0
             else:
                 penalty += 3.0
@@ -347,8 +363,11 @@ class Index:
 
         if any(sim[i][best_perm[i]][0] < TOKEN_CUTOFF if best_perm[i] is not None else True for i in used_q):
             name_score = _cap(name_score, REVIEW_THRESHOLD - 1)  # every given token must be present
-        if len(used_q) == 1:
-            name_score = _cap(name_score, MATCH_THRESHOLD - 1)   # a single token is never a full hit
+        # One word is a full hit only when the record has no other significant word
+        # ("Rosneft" ↔ "ROSNEFT"), never for people ("Lavrov" ↔ "Sergei LAVROV").
+        significant_extra = [x for x in extra if x not in STOPWORDS and x not in LEGAL_FORMS]
+        if len(used_q) == 1 and (self.entries[form.entry]["entity_type"] == "person" or significant_extra):
+            name_score = _cap(name_score, MATCH_THRESHOLD - 1)
         if sur < SURNAME_REVIEW_MIN:
             name_score = _cap(name_score, REVIEW_THRESHOLD - 1)  # surname must match
         elif sur < SURNAME_MATCH_MIN:

@@ -47,6 +47,8 @@ Other features:
 | ![](docs/false-positive.png) | ![](docs/batch.png) |
 | **Sanctions lists** | **Methodology** |
 | ![](docs/lists.png) | ![](docs/methodology.png) |
+| **Escalation report** | |
+| ![](docs/report.png) | |
 
 ## Results on real list entries
 
@@ -81,7 +83,7 @@ Or step by step:
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m app.update          # download + parse EU, UN, OFAC into data/sanctions.db
 .venv/bin/uvicorn app.main:app --port 8000
-.venv/bin/python -m pytest              # 72 tests: transliteration, matching, API
+.venv/bin/python -m pytest              # 75 tests: transliteration, matching, API
 ```
 
 The Telegram bot (optional) runs with `TELEGRAM_BOT_TOKEN=... .venv/bin/python -m app.telegram_bot`.

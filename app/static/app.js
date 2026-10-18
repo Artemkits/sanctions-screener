@@ -66,7 +66,8 @@ const I18N = {
     letter_not_in: "litera nie występuje w tym języku",
     foot: "Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).",
     conflict_birth: "inna data urodzenia", conflict_nationality: "inne obywatelstwo", conflict_alias: "słaby alias",
-    loading: "Ładowanie indeksu list…", error: "Błąd", list_error: "błąd pobierania",
+    loading: "Ładowanie indeksu list…", loading_short: "Ładowanie indeksu…", new_check: "Nowe sprawdzenie",
+    short_h: "Za krótkie zapytanie", short_p: "Wpisz pełne imię i nazwisko lub nazwę podmiotu — sama litera albo przedimek (al, bin) nie wystarczą.", error: "Błąd", list_error: "błąd pobierania",
   },
   en: {
     tagline: "Transliteration-aware EU · UN · OFAC screening", analyst: "Analyst",
@@ -130,7 +131,8 @@ const I18N = {
     letter_not_in: "letter not used in this language",
     foot: "Data: public consolidated lists of the EU (FSF), the UN Security Council and OFAC SDN. Demo project — not a replacement for commercial systems (World-Check, Dow Jones).",
     conflict_birth: "different date of birth", conflict_nationality: "different nationality", conflict_alias: "weak alias",
-    loading: "Loading list index…", error: "Error", list_error: "download error",
+    loading: "Loading list index…", loading_short: "Loading index…", new_check: "New check",
+    short_h: "Query too short", short_p: "Enter a full name or an entity name — a single letter or a particle (al, bin) is not enough.", error: "Error", list_error: "download error",
   },
 };
 const SYS = {
@@ -316,7 +318,7 @@ async function runSearch(e) {
   const name = $("#name").value.trim();
   if (!name) { $("#name").focus(); return; }
   const btn = $("#go");
-  btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>${t("checking")}`;
+  btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>${status && !status.ready ? t("loading_short") : t("checking")}`;
   try {
     last = await getJSON("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, birth: $("#birth").value.trim(), nationality: $("#nat").value,
@@ -334,7 +336,18 @@ const meter = (score, status, big) =>
   `<div class="meter ${status} ${big ? "big" : ""}"><b>${score.toFixed(0)}</b><span class="track"><i style="width:${Math.min(100, score)}%"></i></span></div>`;
 
 function renderSearch(res) {
-  $("#out").hidden = false; $("#intro").hidden = true;
+  $("#out").hidden = false; $("#intro").hidden = true; $("#reset").hidden = false;
+  if (res.birth && !$("#birth").value) {
+    $("#birth").value = res.birth;
+    $("#name").value = $("#name").value.replace(res.birth, "").replace(/\s+/g, " ").trim();
+  }
+  if (res.too_short) {
+    $("#verdict").className = "verdict";
+    $("#verdict").innerHTML = `<div><div class="verdict-status">${t("short_h")}</div><div class="verdict-title">${t("short_p")}</div></div>`;
+    $("#match-fan").closest(".block").hidden = true; $("#results").closest(".block").hidden = true; $("#variants").hidden = true;
+    return;
+  }
+  $("#match-fan").closest(".block").hidden = false; $("#results").closest(".block").hidden = false; $("#variants").hidden = false;
   const counts = { match: 0, review: 0, weak: 0 };
   res.results.forEach((r) => counts[r.status]++);
   const level = counts.match ? "match" : counts.review ? "review" : "clear";
@@ -363,13 +376,13 @@ function renderTable(res) {
   const showWeak = $("#weak").checked;
   const rows = res.results.filter((r) => showWeak || r.status !== "weak");
   $("#results tbody").innerHTML = rows.map((r) => `<tr class="${r.status}" data-i="${res.results.indexOf(r)}" tabindex="0">
-      <td>${meter(r.score, r.status)}</td>
-      <td><span class="badge ${r.status}">${t(r.status)}</span></td>
-      <td>${esc(r.primary_name)}<div class="sub">${t(r.entity_type)}</div></td>
-      <td class="alias-cell">${esc(r.matched_alias)}</td>
-      <td class="src">${listLabel(r.source)}</td>
-      <td>${esc(r.programs.slice(0, 4).join(", "))}${r.programs.length > 4 ? " …" : ""}</td>
-      <td>${esc(dob(r.birth_dates))}</td></tr>`).join("");
+      <td data-label="${t("c_score")}">${meter(r.score, r.status)}</td>
+      <td data-label="${t("c_status")}"><span class="badge ${r.status}">${t(r.status)}</span></td>
+      <td data-label="${t("c_listed")}">${esc(r.primary_name)}<div class="sub">${t(r.entity_type)}</div></td>
+      <td data-label="${t("c_alias")}" class="alias-cell">${esc(r.matched_alias)}</td>
+      <td data-label="${t("c_source")}" class="src">${listLabel(r.source)}</td>
+      <td data-label="${t("c_program")}">${esc(r.programs.slice(0, 4).join(", "))}${r.programs.length > 4 ? " …" : ""}</td>
+      <td data-label="${t("c_dob")}">${esc(dob(r.birth_dates))}</td></tr>`).join("");
   $("#empty").hidden = rows.length > 0;
   $("#empty").textContent = showWeak ? t("none_weak") : t("none");
 }
@@ -456,6 +469,14 @@ function cardRecord(d, r) {
       `<li class="${a.quality === "weak" ? "q-weak" : ""} ${a.name === r.matched_alias ? "hl" : ""}">${esc(a.name)} <span class="muted">${esc(a.lang || "")}</span></li>`).join("")}</ul>
     <div class="card-actions"><a class="button solid" href="/report/${last.search_id}?lang=${lang}" target="_blank" rel="noopener">${t("report")}</a>
     ${d.url ? `<a class="button" href="${esc(d.url)}" target="_blank" rel="noopener">${t("open_source")}</a>` : ""}</div>`;
+}
+
+function resetSearch() {
+  last = null;
+  ["#name", "#birth"].forEach((x) => { $(x).value = ""; });
+  $("#nat").value = "";
+  $("#out").hidden = true; $("#intro").hidden = false; $("#reset").hidden = true;
+  renderIntroFan(); $("#name").focus();
 }
 
 function closeCard() { $("#card").hidden = true; $("#scrim").hidden = true; }
@@ -620,6 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $$(".lang button").forEach((b) => b.addEventListener("click", () => { lang = b.dataset.lang; store("lang", lang); applyLang(); }));
   $$(".side button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#search").addEventListener("submit", runSearch);
+  $("#reset").addEventListener("click", resetSearch);
   $("#weak").addEventListener("change", () => last && renderTable(last));
   const openFrom = (e) => { const el = e.target.closest("[data-i]"); if (el) openCard(+el.dataset.i); };
   $("#results tbody").addEventListener("click", openFrom);

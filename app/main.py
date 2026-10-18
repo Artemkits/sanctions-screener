@@ -22,9 +22,26 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 MAX_JOBS = 20
 
 
+REFRESH_HOURS = float(os.getenv("AUTO_REFRESH_HOURS", "0") or 0)
+
+
+def _refresh_loop():
+    """Keep a long-running instance current: re-download the lists every AUTO_REFRESH_HOURS."""
+    from .update import update
+    while True:
+        time.sleep(REFRESH_HOURS * 3600)
+        try:
+            update()
+            rebuild_index()
+        except Exception as exc:  # never kill the server because a source is down
+            print("list refresh failed:", exc)
+
+
 @asynccontextmanager
 async def lifespan(_app):
     threading.Thread(target=get_index, daemon=True).start()   # build the index in the background
+    if REFRESH_HOURS > 0:
+        threading.Thread(target=_refresh_loop, daemon=True).start()
     yield
 
 

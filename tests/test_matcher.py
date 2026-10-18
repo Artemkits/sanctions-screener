@@ -98,3 +98,22 @@ def test_parse_birth(s, expected):
 
 def test_status_thresholds():
     assert status_for(90) == "match" and status_for(89.9) == "review" and status_for(74.9) == "weak"
+
+
+def test_query_hygiene(index):
+    assert index.search("!!!")["too_short"]
+    assert index.search("al")["too_short"]
+    res = index.search("😀 Sergey Lavrov")          # emoji must not crash the search
+    assert res["results"][0]["source_id"] == "4"
+    res = index.search("Sergey Lavrov 1950")        # year in the name field → date of birth
+    assert res["birth"] == "1950" and res["results"][0]["explanation"]["factors"][0]["ok"] is True
+
+
+def test_single_word_is_not_a_full_hit_for_people(index):
+    hit = index.search("Lavrov")["results"][0]
+    assert hit["status"] == "review"
+
+
+def test_single_word_company(index):
+    hit = index.search("Kovalchuk Trading", entity_type="entity")["results"][0]
+    assert hit["status"] == "match"

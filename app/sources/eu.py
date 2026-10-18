@@ -1,6 +1,7 @@
 """Parser for the EU Consolidated Financial Sanctions List (XML, schema 1.1)."""
 import xml.etree.ElementTree as ET
 
+from ..text import detect_script, norm_latin
 from . import Alias, Entry, ParseResult
 from .countries import to_iso2
 
@@ -10,6 +11,24 @@ TYPE_MAP = {"person": "person", "enterprise": "entity"}
 
 def _t(tag):
     return NS + tag
+
+
+def _pick_primary(aliases: list) -> Alias:
+    """Display name: the English/unlabelled Latin alias whose words recur most across all aliases.
+
+    EU entries sometimes tag a minor a.k.a. ("League") as English while the main
+    name ("Wagner Group") carries no language, so "first EN alias" is not enough.
+    """
+    bags = [set(norm_latin(a.name).split()) for a in aliases]
+    cands = [i for i, a in enumerate(aliases) if a.lang in ("EN", "") and detect_script(a.name) == "latin"]
+    if not cands:
+        return aliases[0]
+
+    def support(i):
+        words = bags[i]
+        return sum(len(words & b) / max(len(words), 1) for j, b in enumerate(bags) if j != i)
+
+    return aliases[max(cands, key=lambda i: (support(i), aliases[i].lang == "EN", -i))]
 
 
 def parse(path) -> ParseResult:
@@ -34,8 +53,7 @@ def parse(path) -> ParseResult:
         if not aliases:
             el.clear()
             continue
-        # Prefer an English-language alias as the display name.
-        primary = next((a for a in aliases if a.lang == "EN"), aliases[0])
+        primary = _pick_primary(aliases)
         primary.quality = "primary"
 
         programs, urls = [], []

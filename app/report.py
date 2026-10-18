@@ -66,6 +66,10 @@ def _local(ts: str) -> str:
         return ts or ""
 
 
+def _num(n: int, lang: str) -> str:
+    return f"{n:,}".replace(",", "\u00a0" if lang == "pl" else ",")
+
+
 def _sys(code: str, lang: str) -> str:
     if lang == "en":
         return SYSTEM_LABELS_EN.get(code, code)
@@ -137,7 +141,7 @@ def render(rec: dict, decisions: list, lang: str = "pl") -> str:
 <main>
 <header><div class="brand">SANCTIONS SCREENER</div><h1>{t['title']}</h1>
 <table class="meta"><tr><th>{t['id']}</th><td>#{rec['id']}</td><th>{t['checked_at']}</th><td>{_e(_local(rec['ts']))}</td></tr>
-<tr><th>{t['analyst']}</th><td>{_e(rec['actor'])}</td><th>{t['combos']}</th><td>{res.get('combinations', 0):,}</td></tr></table></header>
+<tr><th>{t['analyst']}</th><td>{_e(rec['actor'])}</td><th>{t['combos']}</th><td>{_num(res.get('combinations', 0), lang)}</td></tr></table></header>
 
 <section><h2>{t['subject']}</h2><table class="meta">
 <tr><th>{t['name']}</th><td><b>{_e(q.get('name'))}</b></td><th>{t['type']}</th><td>{_e(t.get(q.get('entity_type') or 'any', ''))}</td></tr>
