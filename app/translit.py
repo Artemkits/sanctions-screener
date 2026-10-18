@@ -27,6 +27,7 @@ from __future__ import annotations
 import heapq
 import math
 import re
+import threading
 from dataclasses import dataclass, field
 
 from .text import detect_script, fix_homoglyphs, norm_cyrillic, norm_latin, skeleton, split_tokens
@@ -43,6 +44,22 @@ SYSTEM_LABELS = {
     "VAR": "wariant fonetyczny",
     "LATIN": "zapis łaciński (wejście)",
     "LATIN_ALT": "alternatywna pisownia łacińska",
+}
+
+SYSTEM_LABELS_EN = {
+    "UA_KMU2010": "UA — KMU 2010 (Ukrainian official)",
+    "RU_ICAO": "RU — ICAO 9303 (passports)",
+    "RU_GOST": "RU — GOST 7.79-2000 (B)",
+    "BGN": "BGN/PCGN",
+    "POP": "common English",
+    "PL": "Polish (PWN)",
+    "DE": "German (Duden)",
+    "BY_PASS": "BY — passport",
+    "VAR": "phonetic variant",
+    "LATIN": "Latin input",
+    "LATIN_ALT": "alternative Latin spelling",
+    "SKELETON": "phonetic skeleton",
+    "CYR": "original script (Cyrillic)",
 }
 
 VOWELS = set("аеёиоуыэюяіїє")
@@ -92,13 +109,24 @@ def _iotated_pos(w, i):
     return i == 0 or p in VOWELS or p in SIGNS
 
 
+_trace = threading.local()
+
+
 def _run(word: str, rule) -> str:
-    out, i = [], 0
+    out, pieces, i = [], [], 0
     while i < len(word):
         res, used = rule(word, i)
         out.append(res)
+        pieces.append((i, word[i:i + used], res))
         i += used
+    _trace.pieces = pieces
     return "".join(out)
+
+
+def trace(fn, word: str) -> list[tuple[int, str, str]]:
+    """Run a system and return [(position, cyrillic chunk, latin chunk)] — used by the methodology page."""
+    fn(word)
+    return getattr(_trace, "pieces", [])
 
 
 def _ending(w, i, *endings):
@@ -137,7 +165,7 @@ _RU_ICAO["'"] = ""
 
 
 def ru_icao(w: str) -> str:
-    return "".join(_RU_ICAO.get(c, c) for c in w)
+    return _run(w, lambda w, i: (_RU_ICAO.get(w[i], w[i]), 1))
 
 
 _RU_GOST = dict(а="a", б="b", в="v", г="g", д="d", е="e", ё="yo", ж="zh", з="z", и="i", й="j", к="k",
@@ -244,7 +272,7 @@ def polish(w: str, lang: str) -> str:
         if c == "и":
             if lang == "uk":
                 return "y", 1
-            return ("y" if p in "жшц" else "i"), 1
+            return ("y" if p and p in "жшц" else "i"), 1
         if c == "ї":
             return "ji", 1
         if c == "г":
@@ -269,7 +297,7 @@ def german(w: str, lang: str) -> str:
         if c == "ы" and _ending(w, i, "ый"):
             return "y", 2
         if c == "й":
-            return ("j" if p in "еэ" or i == 0 else "i"), 1
+            return ("j" if (p and p in "еэ") or i == 0 else "i"), 1
         if c == "е":
             return ("je" if iot and lang != "uk" else "e"), 1
         if c == "ё":
@@ -427,9 +455,9 @@ _EQUIV_GROUPS = [
 ]
 _EQUIV = {}
 for _group in _EQUIV_GROUPS:
-    for _lang, _form in zip(("ru", "uk", "be"), _group):
+    for _form in _group:
         _EQUIV.setdefault(_form, set()).update(
-            (l, f) for l, f in zip(("ru", "uk", "be"), _group) if f != _form)
+            (lg, f) for lg, f in zip(("ru", "uk", "be"), _group, strict=True) if f != _form)
 
 
 def name_equivalents(w: str) -> list[tuple[str, str]]:

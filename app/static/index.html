@@ -4,154 +4,229 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sanctions Screener</title>
+<meta name="description" content="Transliteration-aware sanctions screening against EU, UN and OFAC lists (demo).">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2312305b'/%3E%3Crect x='7' y='7' width='18' height='18' fill='none' stroke='white' stroke-width='3'/%3E%3Crect x='15' y='11' width='6' height='10' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">
+  <a class="brand" href="/" aria-label="Sanctions Screener">
     <span class="mark" aria-hidden="true"></span>
-    <div>
-      <div class="brand-name">Sanctions Screener</div>
-      <div class="brand-sub" data-i18n="tagline">Screening UE · ONZ · OFAC z uwzględnieniem transliteracji</div>
-    </div>
-  </div>
+    <span>
+      <span class="brand-name">Sanctions Screener</span>
+      <span class="brand-sub" data-i18n="tagline">Screening UE · ONZ · OFAC z uwzględnieniem transliteracji</span>
+    </span>
+  </a>
   <div class="top-right">
     <label class="analyst"><span data-i18n="analyst">Analityk</span>
-      <input id="analyst" type="text" maxlength="80" placeholder="j.kowalski"></label>
+      <input id="analyst" type="text" maxlength="80" placeholder="j.kowalski" autocomplete="off"></label>
     <div class="lang" role="group" aria-label="Język / Language">
       <button data-lang="pl" class="on">PL</button><button data-lang="en">EN</button>
     </div>
   </div>
 </header>
-
-<div class="lists" id="lists" aria-live="polite"></div>
-
 <div class="disclaimer" data-i18n="disclaimer">Narzędzie demonstracyjne. Nie stanowi podstawy do decyzji compliance.</div>
 
-<nav class="tabs" role="tablist">
-  <button role="tab" data-tab="screen" class="on" data-i18n="tab_screen">Screening</button>
-  <button role="tab" data-tab="batch" data-i18n="tab_batch">Batch (CSV)</button>
-  <button role="tab" data-tab="audit" data-i18n="tab_audit">Dziennik sprawdzeń</button>
-</nav>
+<div class="shell">
+  <nav class="side" aria-label="Sekcje">
+    <div class="side-group" data-i18n="nav_work">Praca</div>
+    <button data-tab="screen" class="on"><span data-i18n="tab_screen">Screening</span></button>
+    <button data-tab="batch"><span data-i18n="tab_batch">Batch (CSV)</span></button>
+    <button data-tab="audit"><span data-i18n="tab_audit">Dziennik</span></button>
+    <div class="side-group" data-i18n="nav_data">Dane</div>
+    <button data-tab="lists"><span data-i18n="tab_lists">Listy sankcyjne</span></button>
+    <button data-tab="method"><span data-i18n="tab_method">Metodologia</span></button>
+    <div class="side-lists" id="side-lists" aria-live="polite"></div>
+  </nav>
 
-<main>
-  <!-- SCREENING -->
-  <section id="tab-screen" class="tab">
-    <form id="search" class="search" autocomplete="off">
-      <div class="field wide">
-        <label for="name" data-i18n="f_name">Imię i nazwisko / nazwa *</label>
-        <input id="name" required maxlength="200" placeholder="Сергій Щербина · Siergiej Ławrow · Yevgeniy Prigozhin">
-      </div>
-      <div class="field">
-        <label for="birth" data-i18n="f_birth">Data urodzenia</label>
-        <input id="birth" maxlength="20" placeholder="1961 / 01.06.1961">
-      </div>
-      <div class="field">
-        <label for="nat" data-i18n="f_nat">Obywatelstwo</label>
-        <select id="nat"><option value="">—</option></select>
-      </div>
-      <div class="field">
-        <label for="etype" data-i18n="f_type">Typ</label>
-        <select id="etype">
-          <option value="person" data-i18n="t_person">osoba fizyczna</option>
-          <option value="entity" data-i18n="t_entity">podmiot</option>
-          <option value="any" data-i18n="t_any">dowolny</option>
-        </select>
-      </div>
-      <div class="field actions">
-        <button type="submit" class="primary" data-i18n="check">Sprawdź</button>
-      </div>
-    </form>
+  <main>
+    <!-- ============ SCREENING ============ -->
+    <section id="tab-screen" class="tab">
+      <form id="search" class="search" autocomplete="off">
+        <div class="field wide">
+          <label for="name" data-i18n="f_name">Imię i nazwisko / nazwa *</label>
+          <input id="name" required maxlength="200" placeholder="Сергій Щербина · Siergiej Ławrow · Yevgeniy Prigozhin">
+        </div>
+        <div class="field">
+          <label for="birth" data-i18n="f_birth">Data urodzenia</label>
+          <input id="birth" maxlength="20" placeholder="1961 / 01.06.1961">
+        </div>
+        <div class="field">
+          <label for="nat" data-i18n="f_nat">Obywatelstwo</label>
+          <select id="nat"><option value="">—</option></select>
+        </div>
+        <div class="field">
+          <label for="etype" data-i18n="f_type">Typ</label>
+          <select id="etype">
+            <option value="person" data-i18n="t_person">osoba fizyczna</option>
+            <option value="entity" data-i18n="t_entity">podmiot</option>
+            <option value="any" data-i18n="t_any">dowolny</option>
+          </select>
+        </div>
+        <div class="field actions">
+          <button type="submit" class="primary" id="go" data-i18n="check">Sprawdź</button>
+        </div>
+      </form>
 
-    <div id="out" hidden>
-      <div class="summary" id="summary"></div>
-
-      <details class="variants" id="variants">
-        <summary><span data-i18n="variants_title">Wygenerowane warianty transliteracji</span> <span class="muted" id="variants-count"></span></summary>
-        <div id="variants-body"></div>
-      </details>
-
-      <div class="results-head">
-        <h2 data-i18n="results">Wyniki</h2>
-        <div class="results-tools">
-          <label class="toggle"><input type="checkbox" id="weak"> <span data-i18n="show_weak">pokaż słabe (&lt; 75)</span></label>
-          <a id="report" class="button" target="_blank" rel="noopener" data-i18n="report">Raport do eskalacji</a>
+      <!-- empty state -->
+      <div class="intro" id="intro">
+        <div class="intro-text">
+          <p class="eyebrow" data-i18n="intro_eyebrow">Luka transliteracyjna</p>
+          <h1 data-i18n="intro_h">Jedno nazwisko, wiele zapisów</h1>
+          <p data-i18n="intro_p">Ta sama osoba figuruje w paszporcie, w prasie i na liście sankcyjnej pod różnymi zapisami łacińskimi. Narzędzie generuje warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w listach UE, ONZ i OFAC.</p>
+        </div>
+        <div class="fan" id="intro-fan" aria-hidden="true"></div>
+        <div class="demo">
+          <p class="eyebrow" data-i18n="demo_h">Scenariusze demonstracyjne</p>
+          <div class="demo-grid">
+            <button class="demo-card" data-q="Евгений Пригожин" data-b="1961" data-n="">
+              <span class="demo-kind match" data-i18n="demo_exact">Trafienie dokładne</span>
+              <span class="demo-name">Евгений Пригожин</span><span class="demo-meta">1961</span>
+            </button>
+            <button class="demo-card" data-q="Wiaczesław Wołodin" data-b="" data-n="">
+              <span class="demo-kind review" data-i18n="demo_translit">Tylko dzięki transliteracji</span>
+              <span class="demo-name">Wiaczesław Wołodin</span><span class="demo-meta" data-i18n="demo_translit_meta">pisownia polska</span>
+            </button>
+            <button class="demo-card" data-q="Юрий Ковальчук" data-b="1984" data-n="UA">
+              <span class="demo-kind weak" data-i18n="demo_fp">False positive</span>
+              <span class="demo-name">Юрий Ковальчук</span><span class="demo-meta">1984 · UA</span>
+            </button>
+            <button class="demo-card" data-q="Аляксандр Лукашэнка" data-b="" data-n="">
+              <span class="demo-kind match" data-i18n="demo_by">Cyrylica białoruska</span>
+              <span class="demo-name">Аляксандр Лукашэнка</span><span class="demo-meta">-энка ↔ -енко</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- results -->
+      <div id="out" hidden>
+        <div class="verdict" id="verdict"></div>
+
+        <section class="block">
+          <div class="block-head">
+            <h2 data-i18n="map_h">Mapa dopasowania</h2>
+            <span class="muted small" data-i18n="map_sub">zapytanie → wariant, który dał trafienie → rekord na liście</span>
+          </div>
+          <div class="fan" id="match-fan"></div>
+        </section>
+
+        <section class="block">
+          <div class="block-head">
+            <h2 data-i18n="results">Wyniki</h2>
+            <div class="results-tools">
+              <label class="toggle"><input type="checkbox" id="weak"> <span data-i18n="show_weak">pokaż słabe (&lt; 75)</span></label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="results" id="results">
+              <thead><tr>
+                <th data-i18n="c_score">Wynik</th><th data-i18n="c_status">Status</th><th data-i18n="c_listed">Nazwa na liście</th>
+                <th data-i18n="c_alias">Dopasowany alias</th><th data-i18n="c_source">Lista</th><th data-i18n="c_program">Program</th>
+                <th data-i18n="c_dob">Data ur.</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="empty" id="empty" hidden></p>
+        </section>
+
+        <details class="block variants" id="variants">
+          <summary><span data-i18n="variants_title">Wygenerowane warianty transliteracji</span> <span class="muted" id="variants-count"></span></summary>
+          <div id="variants-body"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ BATCH ============ -->
+    <section id="tab-batch" class="tab" hidden>
+      <div class="page-head">
+        <h1 data-i18n="batch_h">Sprawdzenie listy klientów</h1>
+        <p class="muted" data-i18n="batch_p">Plik CSV z kolumną name (lub imie + nazwisko), opcjonalnie birth i nationality. Separator: przecinek, średnik lub tabulator. Do 300 wierszy.</p>
+      </div>
+      <form id="batch" class="batch-form">
+        <label class="drop" id="drop">
+          <input type="file" id="csv" accept=".csv,text/csv" required>
+          <span class="drop-title" data-i18n="batch_drop">Wybierz plik CSV lub upuść go tutaj</span>
+          <span class="drop-file muted" id="drop-file"></span>
+        </label>
+        <div class="batch-controls">
+          <select id="batch-type" aria-label="Typ">
+            <option value="person" data-i18n="t_person">osoba fizyczna</option>
+            <option value="any" data-i18n="t_any">dowolny</option>
+          </select>
+          <button class="primary" type="submit" data-i18n="batch_run">Sprawdź plik</button>
+          <a href="/static/sample_batch.csv" download data-i18n="batch_sample">Przykładowy plik</a>
+        </div>
+      </form>
+      <div class="progress" id="batch-progress" hidden><div class="bar"><span></span></div><span class="muted small" id="batch-progress-text"></span></div>
+      <div id="batch-out" hidden>
+        <div class="block-head">
+          <div class="summary" id="batch-summary"></div>
+          <a id="batch-csv" class="button" data-i18n="batch_dl">Pobierz wyniki (CSV)</a>
+        </div>
+        <div class="table-wrap">
+          <table class="results" id="batch-table">
+            <thead><tr><th>#</th><th data-i18n="c_name">Imię i nazwisko</th><th data-i18n="f_birth">Data urodzenia</th>
+              <th data-i18n="c_status">Status</th><th data-i18n="c_score">Wynik</th><th data-i18n="c_best">Najlepsze trafienie</th>
+              <th data-i18n="c_source">Lista</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AUDIT ============ -->
+    <section id="tab-audit" class="tab" hidden>
+      <div class="page-head row">
+        <div><h1 data-i18n="audit_h">Dziennik sprawdzeń</h1>
+          <p class="muted" data-i18n="audit_p">Każde wyszukiwanie, sprawdzenie pliku i decyzja analityka — kto, co i kiedy.</p></div>
+        <button class="button" id="audit-refresh" data-i18n="refresh">Odśwież</button>
+      </div>
       <div class="table-wrap">
-        <table class="results" id="results">
-          <thead><tr>
-            <th data-i18n="c_score">Wynik</th><th data-i18n="c_status">Status</th><th data-i18n="c_listed">Nazwa na liście</th>
-            <th data-i18n="c_alias">Dopasowany alias</th><th data-i18n="c_source">Źródło</th><th data-i18n="c_program">Program</th>
-            <th data-i18n="c_dob">Data ur.</th><th data-i18n="c_link">Rekord</th>
-          </tr></thead>
+        <table class="results" id="audit-table">
+          <thead><tr><th>#</th><th data-i18n="a_time">Czas</th><th data-i18n="analyst">Analityk</th><th data-i18n="a_action">Akcja</th>
+            <th data-i18n="a_query">Zapytanie</th><th data-i18n="a_result">Wynik</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="empty" id="empty" hidden></p>
-    </div>
+    </section>
 
-    <div class="intro" id="intro">
-      <h2 data-i18n="intro_h">Jedno nazwisko — wiele zapisów</h2>
-      <p data-i18n="intro_p">Сергій Щербина w różnych dokumentach to Serhii Shcherbyna, Sergiy Shcherbina, Siergiej Szczerbina albo Sergej Schtscherbina. Narzędzie generuje te warianty według oficjalnych systemów transliteracji i sprawdza każdy z nich w listach sankcyjnych UE, ONZ i OFAC.</p>
-      <div class="try"><span data-i18n="try">Przykłady:</span>
-        <button class="chip" data-q="Евгений Пригожин" data-b="1961">Евгений Пригожин, 1961</button>
-        <button class="chip" data-q="Siergiej Ławrow">Siergiej Ławrow</button>
-        <button class="chip" data-q="Аляксандр Лукашэнка">Аляксандр Лукашэнка</button>
-        <button class="chip" data-q="Юрий Ковальчук" data-b="1980">Юрий Ковальчук, 1980</button>
+    <!-- ============ LISTS ============ -->
+    <section id="tab-lists" class="tab" hidden>
+      <div class="page-head">
+        <h1 data-i18n="lists_h">Listy sankcyjne</h1>
+        <p class="muted" data-i18n="lists_p">Oficjalne skonsolidowane listy pobierane bezpośrednio od wydawców i zapisywane we wspólnym schemacie. Aktualizacja: python -m app.update</p>
       </div>
-    </div>
-  </section>
+      <div class="list-cards" id="list-cards"></div>
+    </section>
 
-  <!-- BATCH -->
-  <section id="tab-batch" class="tab" hidden>
-    <form id="batch" class="batch-form">
-      <div>
-        <h2 data-i18n="batch_h">Sprawdzenie listy klientów</h2>
-        <p class="muted" data-i18n="batch_p">Plik CSV z kolumną name (lub imie + nazwisko), opcjonalnie birth i nationality. Do 300 wierszy.</p>
-        <a href="/static/sample_batch.csv" download data-i18n="batch_sample">Pobierz przykładowy plik</a>
+    <!-- ============ METHODOLOGY ============ -->
+    <section id="tab-method" class="tab" hidden>
+      <div class="page-head">
+        <h1 data-i18n="method_h">Metodologia</h1>
+        <p class="muted" data-i18n="method_p">Jak powstaje wynik — od wpisanego nazwiska do decyzji analityka.</p>
       </div>
-      <div class="batch-controls">
-        <input type="file" id="csv" accept=".csv,text/csv" required>
-        <select id="batch-type">
-          <option value="person" data-i18n="t_person">osoba fizyczna</option>
-          <option value="any" data-i18n="t_any">dowolny</option>
-        </select>
-        <button class="primary" type="submit" data-i18n="batch_run">Sprawdź plik</button>
-      </div>
-    </form>
-    <div id="batch-out" hidden>
-      <div class="results-head">
-        <div class="summary" id="batch-summary"></div>
-        <a id="batch-csv" class="button" data-i18n="batch_dl">Pobierz wyniki (CSV)</a>
-      </div>
-      <div class="table-wrap">
-        <table class="results" id="batch-table">
-          <thead><tr><th>#</th><th data-i18n="c_name">Imię i nazwisko</th><th data-i18n="f_birth">Data urodzenia</th>
-            <th data-i18n="c_status">Status</th><th data-i18n="c_score">Wynik</th><th data-i18n="c_best">Najlepsze trafienie</th>
-            <th data-i18n="c_source">Źródło</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- AUDIT -->
-  <section id="tab-audit" class="tab" hidden>
-    <div class="results-head"><h2 data-i18n="audit_h">Dziennik sprawdzeń</h2>
-      <button class="button" id="audit-refresh" data-i18n="refresh">Odśwież</button></div>
-    <div class="table-wrap">
-      <table class="results" id="audit-table">
-        <thead><tr><th>#</th><th data-i18n="a_time">Czas</th><th data-i18n="analyst">Analityk</th><th data-i18n="a_action">Akcja</th>
-          <th data-i18n="a_query">Zapytanie</th><th data-i18n="a_result">Wynik</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-</main>
+      <ol class="pipeline" id="pipeline"></ol>
+      <section class="block">
+        <div class="block-head"><h2 data-i18n="thr_h">Progi</h2></div>
+        <div class="thresholds" id="thresholds"></div>
+      </section>
+      <section class="block">
+        <div class="block-head"><h2 data-i18n="table_h">Tablica transliteracji</h2>
+          <span class="muted small" data-i18n="table_sub">generowana z kodu, który wykonuje wyszukiwanie · kilka wartości = zależność od pozycji litery</span></div>
+        <div class="table-wrap"><table class="letters" id="letters"></table></div>
+      </section>
+      <section class="block">
+        <div class="block-head"><h2 data-i18n="examples_h">Przykłady</h2></div>
+        <div class="table-wrap"><table class="letters examples" id="examples"></table></div>
+      </section>
+    </section>
+  </main>
+</div>
 
 <!-- MATCH CARD -->
 <div class="scrim" id="scrim" hidden></div>
@@ -161,7 +236,7 @@
 </aside>
 
 <footer class="foot">
-  <span data-i18n="foot">Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. To nie jest system komercyjny (World-Check, Dow Jones).</span>
+  <span data-i18n="foot">Dane: publiczne skonsolidowane listy UE (FSF), Rady Bezpieczeństwa ONZ oraz OFAC SDN. Projekt demonstracyjny — nie zastępuje systemów komercyjnych (World-Check, Dow Jones).</span>
 </footer>
 
 <script src="/static/app.js"></script>

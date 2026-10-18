@@ -2,8 +2,7 @@
 import pytest
 
 from app.text import norm_latin, skeleton
-from app.translit import (detect_language, full_name_examples, name_variants, polish, token_variants,
-                          ua_kmu2010)
+from app.translit import detect_language, full_name_examples, name_variants, polish, token_variants, ua_kmu2010
 
 
 def norms(token):
@@ -134,3 +133,9 @@ def test_latin_homoglyphs_inside_cyrillic():
     # The EU list writes some Ukrainian names with a Latin "i": "Сергiй", "Пасiчник"
     assert "serhii" in norms("Сергiй")
     assert "pasichnyk" in norms("Пасiчник")
+
+
+def test_polish_initial_i():
+    # regression: an empty "previous letter" must not count as a hushing consonant
+    assert polish("иван", "ru") == "iwan"
+    assert polish("игорь", "ru") == "igor"

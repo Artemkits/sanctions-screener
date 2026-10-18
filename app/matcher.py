@@ -33,10 +33,26 @@ from rapidfuzz import fuzz, process
 
 from .config import MATCH_THRESHOLD, REVIEW_THRESHOLD, SOURCES, WEAK_THRESHOLD
 from .db import connect
-from .text import (STOPWORDS, SURNAME_SUFFIX, detect_script, looks_like_patronymic, norm_cyrillic,
-                   norm_latin, skeleton, split_tokens)
-from .translit import (SYSTEM_LABELS, by_passport, detect_language, full_name_examples, name_languages,
-                       name_variants, ru_icao, russify, ua_kmu2010)
+from .text import (
+    STOPWORDS,
+    SURNAME_SUFFIX,
+    looks_like_patronymic,
+    norm_cyrillic,
+    norm_latin,
+    skeleton,
+    split_tokens,
+)
+from .translit import (
+    SYSTEM_LABELS,
+    by_passport,
+    detect_language,
+    full_name_examples,
+    name_languages,
+    name_variants,
+    ru_icao,
+    russify,
+    ua_kmu2010,
+)
 
 TOKEN_CUTOFF = 70          # minimum token similarity to become a candidate
 SKELETON_DISCOUNT = 0.95   # skeleton matches are fuzzier than explicit variants
@@ -82,6 +98,7 @@ class Index:
         self.inv: list[list[int]] = []
         self.skel_inv: list[list[int]] = []
         self.meta: dict[str, dict] = {}
+        self.stats: dict[str, dict] = {}
         self.built_at = None
         self.build_seconds = 0.0
 
@@ -148,6 +165,7 @@ class Index:
                 add_form(a["entry_id"], a["id"], latin.split(), True, f"translit:{method}")
 
         self.meta = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta")}
+        self.stats = _stats(entries, aliases)
         self.entries, self.aliases, self.forms = entries, aliases, forms
         self.vocab, self.skel_vocab, self.inv, self.skel_inv = vocab, skel_vocab, inv, skel_inv
         self.built_at = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -166,7 +184,7 @@ class Index:
         if not len(idx):
             return {}
         arg = m[:, idx].argmax(axis=0)
-        return {int(v): (float(best[v]), int(a)) for v, a in zip(idx, arg)}
+        return {int(v): (float(best[v]), int(a)) for v, a in zip(idx, arg, strict=False)}
 
     def search(self, name: str, birth: str = "", nationality: str = "", entity_type: str = "any",
                limit: int = 50, min_score: float = WEAK_THRESHOLD) -> dict:
@@ -217,8 +235,9 @@ class Index:
             alias = self.aliases[sc["alias_id"]]
             if alias["quality"] == "weak":
                 score -= 5
-                factors.append({"field": "alias", "effect": -5, "ok": None,
-                                "text": "Alias niskiej jakości (weak/low a.k.a.) w liście źródłowej"})
+                factors.append(_factor("alias", -5, None,
+                                       "Alias niskiej jakości (weak/low a.k.a.) w liście źródłowej",
+                                       "Low-quality alias (weak/low a.k.a.) in the source list"))
             score = max(0.0, min(100.0, score))
             if score < min_score:
                 continue
@@ -347,7 +366,7 @@ class Index:
                 strings = q_strings[i]
                 s = strings[prov[1]]
                 v = next((v for v in q[i].variants if v.norm == s), None)
-                row.update(channel="direct", variant=v.text if v else s,
+                row.update(channel="direct", variant=v.text if v else q[i].original,
                            systems=[SYSTEM_LABELS.get(x, x) for x in (v.systems if v else ["CYR"])],
                            system_codes=v.systems if v else ["CYR"],
                            via_equivalent=_via_equivalent(q[i], v),
@@ -355,7 +374,10 @@ class Index:
                 if not v:
                     row["systems"] = ["zapis oryginalny (cyrylica)"]
             elif prov:
-                row.update(channel="skeleton", variant=skel_lists[i][prov[1]],
+                key = skel_lists[i][prov[1]]
+                # show the generated spelling that produced this skeleton, not the internal key
+                v = next((v for v in q[i].variants if skeleton(v.norm) == key), None)
+                row.update(channel="skeleton", variant=v.text if v else key, skeleton=key,
                            systems=["szkielet fonetyczny"], system_codes=["SKELETON"])
             token_rows.append(row)
 
@@ -395,6 +417,32 @@ class Index:
 
 
 # ---------------------------------------------------------------------- helpers
+
+def _stats(entries: dict, aliases: dict) -> dict:
+    """Per-source composition shown on the "Lists" page."""
+    from collections import Counter
+    out = {}
+    for src in SOURCES:
+        ents = [e for e in entries.values() if e["source"] == src]
+        ids = {e["id"] for e in ents}
+        als = [a for a in aliases.values() if a["entry_id"] in ids]
+        progs = Counter(p for e in ents for p in e["programs"])
+        nats = Counter(n["iso2"] for e in ents for n in e["nationalities"] if n.get("iso2"))
+        out[src] = {
+            "entries": len(ents),
+            "aliases": len(als),
+            "by_type": dict(Counter(e["entity_type"] for e in ents).most_common()),
+            "by_script": dict(Counter(a["script"] for a in als).most_common()),
+            "top_programs": progs.most_common(8),
+            "top_nationalities": nats.most_common(8),
+            "with_birth_date": sum(1 for e in ents if e["birth_dates"]),
+        }
+    return out
+
+
+def index_ready() -> bool:
+    return _index is not None
+
 
 def _cap(score: float, cap: float) -> float:
     """Push a score below `cap` while keeping the relative order of capped scores."""
@@ -464,6 +512,10 @@ def parse_birth(s: str) -> tuple[int | None, str]:
     return (int(m[0]), "") if m else (None, "")
 
 
+def _factor(field: str, effect: int, ok, pl: str, en: str) -> dict:
+    return {"field": field, "effect": effect, "ok": ok, "text": pl, "text_en": en}
+
+
 def _adjust(name_score: float, entry: dict, birth: str, nationality: str):
     """Date of birth and nationality as secondary identifiers."""
     score, factors = name_score, []
@@ -471,8 +523,9 @@ def _adjust(name_score: float, entry: dict, birth: str, nationality: str):
     births = entry["birth_dates"]
     if year:
         if not births:
-            factors.append({"field": "birth", "effect": 0, "ok": None,
-                            "text": "Brak daty urodzenia w rekordzie — nie można potwierdzić ani wykluczyć"})
+            factors.append(_factor("birth", 0, None,
+                                   "Brak daty urodzenia w rekordzie — nie można potwierdzić ani wykluczyć",
+                                   "No date of birth in the record — cannot confirm or rule out"))
         else:
             listed = []
             exact = year_ok = near = False
@@ -488,28 +541,35 @@ def _adjust(name_score: float, entry: dict, birth: str, nationality: str):
             lst = ", ".join(x for x in listed if x and x != "None")
             if exact:
                 score += 5
-                factors.append({"field": "birth", "effect": 5, "ok": True, "text": f"Data urodzenia zgodna ({date})"})
+                factors.append(_factor("birth", 5, True, f"Data urodzenia zgodna ({date})",
+                                       f"Date of birth matches ({date})"))
             elif year_ok:
                 score += 3
-                factors.append({"field": "birth", "effect": 3, "ok": True, "text": f"Rok urodzenia zgodny ({year}; lista: {lst})"})
+                factors.append(_factor("birth", 3, True, f"Rok urodzenia zgodny ({year}; lista: {lst})",
+                                       f"Year of birth matches ({year}; list: {lst})"))
             elif near:
-                factors.append({"field": "birth", "effect": 0, "ok": None, "text": f"Rok urodzenia zbliżony (±1–2): {year} vs {lst}"})
+                factors.append(_factor("birth", 0, None, f"Rok urodzenia zbliżony (±1–2): {year} vs {lst}",
+                                       f"Year of birth close (±1–2): {year} vs {lst}"))
             else:
                 score -= 15
-                factors.append({"field": "birth", "effect": -15, "ok": False,
-                                "text": f"Inny rok urodzenia: {year} vs {lst} — argument za false positive"})
+                factors.append(_factor("birth", -15, False,
+                                       f"Inny rok urodzenia: {year} vs {lst} — argument za false positive",
+                                       f"Different year of birth: {year} vs {lst} — points to a false positive"))
     nat = (nationality or "").strip().upper()
     if nat:
         nats = [n.get("iso2") for n in entry["nationalities"] if n.get("iso2")]
         if not nats:
-            factors.append({"field": "nationality", "effect": 0, "ok": None, "text": "Brak obywatelstwa w rekordzie"})
+            factors.append(_factor("nationality", 0, None, "Brak obywatelstwa w rekordzie",
+                                   "No nationality in the record"))
         elif nat in nats:
             score += 3
-            factors.append({"field": "nationality", "effect": 3, "ok": True, "text": f"Obywatelstwo zgodne ({nat})"})
+            factors.append(_factor("nationality", 3, True, f"Obywatelstwo zgodne ({nat})",
+                                   f"Nationality matches ({nat})"))
         else:
             score -= 5
-            factors.append({"field": "nationality", "effect": -5, "ok": False,
-                            "text": f"Inne obywatelstwo: {nat} vs {', '.join(nats)} — argument za false positive"})
+            factors.append(_factor("nationality", -5, False,
+                                   f"Inne obywatelstwo: {nat} vs {', '.join(nats)} — argument za false positive",
+                                   f"Different nationality: {nat} vs {', '.join(nats)} — points to a false positive"))
     return score, factors
 
 

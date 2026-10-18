@@ -6,7 +6,8 @@ Usage:  python -m app.update            # all sources
 """
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 
@@ -19,7 +20,7 @@ PARSERS = {"EU": eu.parse, "UN": un.parse, "OFAC": ofac.parse}
 RAW_DIR = DATA_DIR / "raw"
 
 
-def download(source: str) -> "Path":
+def download(source: str) -> Path:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     target = RAW_DIR / f"{source.lower()}.xml"
     tmp = target.with_suffix(".part")
@@ -81,7 +82,7 @@ def update(sources=None, offline=False) -> dict:
         try:
             path = RAW_DIR / f"{src.lower()}.xml" if offline else download(src)
             n, na, list_date = load(src, path)
-            set_meta(src, fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            set_meta(src, fetched_at=datetime.now(UTC).isoformat(timespec="seconds"),
                      list_date=list_date, record_count=n, alias_count=na,
                      url=SOURCES[src]["url"], status="ok", note="")
             report[src] = f"ok: {n} records, {na} aliases, list date {list_date} ({time.time() - t0:.1f}s)"

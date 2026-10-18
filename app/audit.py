@@ -1,12 +1,12 @@
 """Audit log: who checked what and when, plus analyst decisions."""
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .db import dumps, session
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def log(action: str, actor: str, query: dict, summary: dict, payload: dict | None = None) -> int:

@@ -2,7 +2,7 @@
 
 Screens a person or company name against the official **EU**, **UN** and **OFAC** sanctions lists. It handles the main source of missed hits and false alerts for clients from Ukraine, Russia and Belarus: **one name can be spelled many different ways in Latin script.**
 
-![Results](docs/results.png)
+![Demo](docs/demo.gif)
 
 ## The problem: the transliteration gap
 
@@ -33,15 +33,20 @@ This matters in Poland in particular. Polish documents and press use **Polish tr
 
 Other features:
 
-- **Escalation report**: a printable page (or PDF) listing what was checked, when, against which list versions, the hits and their rationale, plus a decision form (*false positive / escalation / freeze*) that writes to the audit log. It follows the screening alert → review → decision workflow.
-- **Batch screening** of a CSV customer list with CSV export.
+- **Match map.** For every search, a diagram shows *query → the variant that produced the hit (and which system generated it) → the list record*. Contradicting identifiers are flagged directly on the record.
+- **Escalation report**: a printable page (or PDF) listing what was checked, when, against which list versions, the hits and their rationale, a system recommendation, and a decision form (*false positive / escalation / freeze*) that writes to the audit log. It follows the screening alert → review → decision workflow.
+- **Batch screening** of a CSV customer list (comma, semicolon or tab separated), with a progress bar and CSV export.
 - **Audit log** of every search, batch run and decision.
+- **Lists page**: version, record and alias counts, scripts and top sanctions programmes for each source.
+- **Methodology page**: the transliteration table (letter × system) is generated live from the same code that runs the search.
 - **Telegram bot**: `/check Сергій Щербина 1975` returns the top 3 hits.
 - Polish UI with an English switch.
 
-| Variants | False positive argument | Batch |
-|---|---|---|
-| ![](docs/variants.png) | ![](docs/false-positive.png) | ![](docs/batch.png) |
+| False positive argument | Batch |
+|---|---|
+| ![](docs/false-positive.png) | ![](docs/batch.png) |
+| **Sanctions lists** | **Methodology** |
+| ![](docs/lists.png) | ![](docs/methodology.png) |
 
 ## Results on real list entries
 
@@ -76,7 +81,7 @@ Or step by step:
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m app.update          # download + parse EU, UN, OFAC into data/sanctions.db
 .venv/bin/uvicorn app.main:app --port 8000
-.venv/bin/python -m pytest              # 63 tests
+.venv/bin/python -m pytest              # 72 tests: transliteration, matching, API
 ```
 
 The Telegram bot (optional) runs with `TELEGRAM_BOT_TOKEN=... .venv/bin/python -m app.telegram_bot`.

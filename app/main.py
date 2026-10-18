@@ -1,6 +1,8 @@
 """FastAPI application: JSON API + single-page UI + printable escalation report."""
 import os
 import threading
+import time
+from contextlib import asynccontextmanager
 
 import pycountry
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -9,22 +11,29 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import audit, batch, report
-from .config import BASE_DIR, REVIEW_THRESHOLD, WEAK_THRESHOLD
-from .matcher import get_index, rebuild_index
+from .config import BASE_DIR, MATCH_THRESHOLD, REVIEW_THRESHOLD, SOURCES, WEAK_THRESHOLD
+from .db import connect
+from .matcher import get_index, index_ready, rebuild_index
+from .methodology import letter_table
+from .translit import SYSTEM_LABELS
 
 STATIC = BASE_DIR / "app" / "static"
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+MAX_JOBS = 20
 
-app = FastAPI(title="Sanctions Screener", version="1.0",
+
+@asynccontextmanager
+async def lifespan(_app):
+    threading.Thread(target=get_index, daemon=True).start()   # build the index in the background
+    yield
+
+
+app = FastAPI(title="Sanctions Screener", version="1.1", lifespan=lifespan,
               description="Transliteration-aware screening against EU, UN and OFAC sanctions lists (demo).")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
-_batches: dict[int, list] = {}
-
-
-@app.on_event("startup")
-def _warm_up():
-    threading.Thread(target=get_index, daemon=True).start()
+_jobs: dict[int, dict] = {}
+_jobs_lock = threading.Lock()
 
 
 class SearchIn(BaseModel):
@@ -49,11 +58,38 @@ def index_page():
     return FileResponse(STATIC / "index.html")
 
 
+def _meta_from_db() -> dict:
+    conn = connect()
+    rows = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_meta")}
+    conn.close()
+    return {s: {k: rows.get(s, {}).get(k) for k in ("list_date", "fetched_at", "record_count", "alias_count", "status")}
+            for s in SOURCES}
+
+
 @app.get("/api/status")
 def status():
+    """List versions; answers immediately even while the index is still being built."""
+    if not index_ready():
+        return {"ready": False, "lists": _meta_from_db()}
     ix = get_index()
-    return {"lists": ix.list_versions(), "index": {"built_at": ix.built_at, "seconds": ix.build_seconds,
-                                                  "forms": len(ix.forms), "tokens": len(ix.vocab)}}
+    return {"ready": True, "lists": ix.list_versions(),
+            "index": {"built_at": ix.built_at, "seconds": ix.build_seconds, "forms": len(ix.forms),
+                      "tokens": len(ix.vocab)},
+            "thresholds": {"match": MATCH_THRESHOLD, "review": REVIEW_THRESHOLD, "weak": WEAK_THRESHOLD}}
+
+
+@app.get("/api/lists")
+def lists():
+    ix = get_index()
+    return {s: {**ix.list_versions()[s], **ix.stats.get(s, {}), "name": SOURCES[s]["name"],
+                "label": SOURCES[s]["label"], "url": SOURCES[s]["url"], "info_url": SOURCES[s]["info_url"]}
+            for s in SOURCES}
+
+
+@app.get("/api/methodology")
+def methodology():
+    return {**letter_table(), "systems": SYSTEM_LABELS,
+            "thresholds": {"match": MATCH_THRESHOLD, "review": REVIEW_THRESHOLD, "weak": WEAK_THRESHOLD}}
 
 
 @app.get("/api/countries")
@@ -86,10 +122,11 @@ def entry(entry_id: int):
 
 @app.post("/api/decision")
 def decision(body: DecisionIn):
-    if not audit.get(body.search_id):
+    rec = audit.get(body.search_id)
+    if not rec or rec["action"] != "search":
         raise HTTPException(404, "search not found")
     log_id = audit.log("decision", body.analyst,
-                       {"search_id": body.search_id, "entry_ids": body.entry_ids},
+                       {"search_id": body.search_id, "entry_ids": body.entry_ids, "name": rec["query"].get("name")},
                        {"decision": body.decision, "comment": body.comment})
     return {"ok": True, "id": log_id}
 
@@ -102,30 +139,62 @@ def report_page(search_id: int, lang: str = "pl"):
     return report.render(rec, audit.decisions_for(search_id), lang=lang if lang in ("pl", "en") else "pl")
 
 
+# ---------------------------------------------------------------- batch (background job with progress)
+
+def _run_batch(job_id: int):
+    job = _jobs[job_id]
+    ix = get_index()
+    for i, row in enumerate(job["rows"]):
+        job["results"].append(batch.screen_row(ix, row, job["entity_type"]))
+        job["done"] = i + 1
+    summary = batch.summarize(job["results"])
+    job["summary"] = summary
+    job["batch_id"] = audit.log("batch", job["analyst"], {"file": job["file"], "rows": len(job["rows"])}, summary)
+    job["status"] = "done"
+    job["elapsed_ms"] = round((time.time() - job["started"]) * 1000)
+
+
 @app.post("/api/batch")
 async def batch_upload(file: UploadFile = File(...), entity_type: str = Form("person"), analyst: str = Form("")):
     raw = await file.read()
     if len(raw) > 2_000_000:
         raise HTTPException(413, "file too large (max 2 MB)")
-    rows = batch.read_rows(raw)
+    rows, truncated = batch.read_rows(raw)
     if not rows:
         raise HTTPException(400, "no names found in the CSV")
-    results = batch.screen(get_index(), rows, entity_type=entity_type)
-    summary = {s: sum(1 for r in results if r["status"] == s) for s in ("match", "review", "clear")}
-    batch_id = audit.log("batch", analyst, {"file": file.filename, "rows": len(rows)}, summary)
-    _batches[batch_id] = results
-    return {"batch_id": batch_id, "rows": len(rows), "summary": summary, "results": results,
-            "truncated": len(rows) >= batch.MAX_ROWS}
+    with _jobs_lock:
+        job_id = max(_jobs, default=0) + 1
+        _jobs[job_id] = {"id": job_id, "status": "running", "file": file.filename, "rows": rows, "done": 0,
+                         "results": [], "entity_type": entity_type if entity_type in ("person", "entity", "any") else "person",
+                         "analyst": analyst, "truncated": truncated, "started": time.time()}
+        for old in sorted(_jobs)[:-MAX_JOBS]:
+            _jobs.pop(old, None)
+    threading.Thread(target=_run_batch, args=(job_id,), daemon=True).start()
+    return {"job_id": job_id, "total": len(rows), "truncated": truncated}
 
 
-@app.get("/api/batch/{batch_id}.csv")
-def batch_csv(batch_id: int):
-    results = _batches.get(batch_id)
-    if results is None:
+@app.get("/api/batch/{job_id}.csv")
+def batch_csv(job_id: int):
+    job = _jobs.get(job_id)
+    if not job or job["status"] != "done":
+        raise HTTPException(404, "batch not ready or expired — run it again")
+    return PlainTextResponse("﻿" + batch.to_csv(job["results"]), media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": f'attachment; filename="screening_batch_{job_id}.csv"'})
+
+
+@app.get("/api/batch/{job_id}")
+def batch_status(job_id: int):
+    job = _jobs.get(job_id)
+    if not job:
         raise HTTPException(404, "batch expired — run it again")
-    return PlainTextResponse(batch.to_csv(results), media_type="text/csv; charset=utf-8",
-                             headers={"Content-Disposition": f'attachment; filename="screening_batch_{batch_id}.csv"'})
+    out = {k: job.get(k) for k in ("id", "status", "file", "done", "truncated", "summary", "elapsed_ms")}
+    out["total"] = len(job["rows"])
+    if job["status"] == "done":
+        out["results"] = job["results"]
+    return out
 
+
+# ---------------------------------------------------------------- audit + admin
 
 @app.get("/api/audit")
 def audit_log(limit: int = 100):
@@ -145,4 +214,4 @@ def admin_update(request: Request):
 
 @app.get("/healthz", include_in_schema=False)
 def healthz():
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, "ready": index_ready()})

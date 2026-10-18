@@ -21,7 +21,8 @@ def _find(header, candidates):
     return None
 
 
-def read_rows(raw: bytes) -> list[dict]:
+def read_rows(raw: bytes) -> tuple[list[dict], bool]:
+    """→ (rows, truncated). Accepts comma, semicolon or tab separated files with a header."""
     text = raw.decode("utf-8-sig", errors="replace")
     try:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
@@ -33,9 +34,10 @@ def read_rows(raw: bytes) -> list[dict]:
     birth_c, nat_c = _find(header, BIRTH_COLUMNS), _find(header, NAT_COLUMNS)
     if not name_c and not last_c:
         name_c = header[0] if header else None     # fall back to the first column
-    rows = []
+    rows, truncated = [], False
     for i, r in enumerate(reader):
         if len(rows) >= MAX_ROWS:
+            truncated = True
             break
         name = (r.get(name_c) or "").strip() if name_c else \
             " ".join(x for x in ((r.get(first_c) or "").strip() if first_c else "", (r.get(last_c) or "").strip()) if x)
@@ -44,33 +46,40 @@ def read_rows(raw: bytes) -> list[dict]:
         rows.append({"row": i + 1, "name": name,
                      "birth": (r.get(birth_c) or "").strip() if birth_c else "",
                      "nationality": (r.get(nat_c) or "").strip().upper()[:2] if nat_c else ""})
-    return rows
+    return rows, truncated
+
+
+def screen_row(index, r: dict, entity_type: str = "person") -> dict:
+    res = index.search(r["name"], birth=r["birth"], nationality=r["nationality"], entity_type=entity_type,
+                       limit=3, min_score=REVIEW_THRESHOLD)
+    top = res["results"]
+    best = top[0] if top else None
+    return {**r,
+            "status": best["status"] if best else "clear",
+            "score": best["score"] if best else None,
+            "hits": [{"score": h["score"], "status": h["status"], "source": h["source_label"],
+                      "primary_name": h["primary_name"], "matched_alias": h["matched_alias"],
+                      "programs": h["programs"], "url": h["url"], "entry_id": h["entry_id"],
+                      "conflicts": [f["text_en"] for f in h["explanation"]["factors"] if f.get("ok") is False]}
+                     for h in top]}
 
 
 def screen(index, rows: list[dict], entity_type: str = "person") -> list[dict]:
-    out = []
-    for r in rows:
-        res = index.search(r["name"], birth=r["birth"], nationality=r["nationality"], entity_type=entity_type,
-                           limit=3, min_score=REVIEW_THRESHOLD)
-        top = res["results"]
-        best = top[0] if top else None
-        out.append({**r,
-                    "status": best["status"] if best else "clear",
-                    "score": best["score"] if best else None,
-                    "hits": [{"score": h["score"], "status": h["status"], "source": h["source_label"],
-                              "primary_name": h["primary_name"], "matched_alias": h["matched_alias"],
-                              "programs": h["programs"], "url": h["url"], "entry_id": h["entry_id"]} for h in top]})
-    return out
+    return [screen_row(index, r, entity_type) for r in rows]
+
+
+def summarize(results: list[dict]) -> dict:
+    return {s: sum(1 for r in results if r["status"] == s) for s in ("match", "review", "clear")}
 
 
 def to_csv(results: list[dict]) -> str:
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["row", "name", "birth", "nationality", "status", "score", "list", "listed_name", "matched_alias",
-                "programs", "url", "other_hits"])
+                "programs", "conflicts", "url", "other_hits"])
     for r in results:
         h = r["hits"][0] if r["hits"] else {}
         w.writerow([r["row"], r["name"], r["birth"], r["nationality"], r["status"], r["score"] or "",
                     h.get("source", ""), h.get("primary_name", ""), h.get("matched_alias", ""),
-                    "; ".join(h.get("programs", [])), h.get("url", ""), len(r["hits"]) - 1 if r["hits"] else 0])
+                    "; ".join(h.get("programs", [])), "; ".join(h.get("conflicts", [])), h.get("url", ""), len(r["hits"]) - 1 if r["hits"] else 0])
     return buf.getvalue()

@@ -4,6 +4,7 @@ from html import escape
 from zoneinfo import ZoneInfo
 
 from .config import SOURCES
+from .translit import SYSTEM_LABELS, SYSTEM_LABELS_EN
 
 T = {
     "pl": {
@@ -23,7 +24,11 @@ T = {
         "disclaimer": "Narzędzie demonstracyjne. Nie stanowi podstawy do decyzji compliance. Dane wyłącznie z publicznych list UE, ONZ i OFAC.",
         "saved": "Decyzja zapisana w dzienniku audytu.", "choose": "Wybierz decyzję.",
         "token": "Token zapytania", "variant": "Użyty wariant", "system": "System", "sim": "Podobieństwo",
-        "factors": "Czynniki dodatkowe", "surname": "nazwisko",
+        "factors": "Czynniki dodatkowe", "surname": "nazwisko", "rec": "Rekomendacja systemu",
+        "rec_match": "możliwe trafienie — eskalacja do Compliance Officer przed kontynuacją relacji",
+        "rec_review": "wymagana weryfikacja analityka (porównanie danych identyfikacyjnych)",
+        "rec_clear": "brak trafień powyżej progu 75 — brak podstaw do eskalacji",
+        "below": "Najbliżsi kandydaci poniżej progu (do wglądu, nie wymagają działania)",
     },
     "en": {
         "title": "Escalation report — sanctions screening", "id": "Report no.", "checked_at": "Checked at",
@@ -40,7 +45,11 @@ T = {
         "weak": "Weak", "disclaimer": "Demo tool. Not a basis for compliance decisions. Data from public EU, UN and OFAC lists only.",
         "saved": "Decision saved to the audit log.", "choose": "Choose a decision.", "token": "Query token",
         "variant": "Variant used", "system": "System", "sim": "Similarity", "factors": "Additional factors",
-        "surname": "surname",
+        "surname": "surname", "rec": "System recommendation",
+        "rec_match": "possible match — escalate to the Compliance Officer before continuing the relationship",
+        "rec_review": "analyst review required (compare identifying data)",
+        "rec_clear": "no hits above 75 — no grounds for escalation",
+        "below": "Closest candidates below the threshold (for reference, no action required)",
     },
 }
 DECISION_KEYS = {"false_positive": "fp", "escalation": "esc", "freeze": "freeze"}
@@ -55,6 +64,12 @@ def _local(ts: str) -> str:
         return datetime.fromisoformat(ts).astimezone(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M:%S %Z")
     except (ValueError, TypeError):
         return ts or ""
+
+
+def _sys(code: str, lang: str) -> str:
+    if lang == "en":
+        return SYSTEM_LABELS_EN.get(code, code)
+    return {"SKELETON": "szkielet fonetyczny", "CYR": "zapis oryginalny (cyrylica)"}.get(code) or SYSTEM_LABELS.get(code, code)
 
 
 def _dob(births) -> str:
@@ -72,14 +87,16 @@ def render(rec: dict, decisions: list, lang: str = "pl") -> str:
         f"<tr><td>{_e(SOURCES[s]['label'])} — {_e(SOURCES[s]['name'])}</td><td>{_e(v.get('list_date'))}</td>"
         f"<td>{_e(v.get('record_count'))}</td><td>{_e(_local(v.get('fetched_at') or ''))}</td></tr>"
         for s, v in res.get("lists", {}).items())
-    examples = "".join(f"<li><b>{_e(x['text'])}</b> <span class='muted'>— {_e(x['label'])}</span></li>"
+    examples = "".join(f"<li><b>{_e(x['text'])}</b> <span class='muted'>— {_e(_sys(x['system'], lang))} · {_e(x['lang'])}</span></li>"
                        for x in res.get("examples", []))
     per_token = "".join(
         f"<li><b>{_e(tv['original'])}</b>: {_e(', '.join(v['text'] for v in tv['variants'][:30]))}"
         f"{' …' if len(tv['variants']) > 30 else ''} <span class='muted'>({len(tv['variants'])})</span></li>"
         for tv in res.get("variants", []))
 
-    shown = [r for r in res.get("results", []) if r["status"] in ("match", "review")] or res.get("results", [])[:5]
+    shown = [r for r in res.get("results", []) if r["status"] in ("match", "review")]
+    below = [] if shown else res.get("results", [])[:3]
+    level = "match" if any(r["status"] == "match" for r in shown) else ("review" if shown else "clear")
     rows = "".join(
         f"<tr><td class='num'>{r['score']:.0f}</td><td><span class='badge {r['status']}'>{_e(t[r['status']])}</span></td>"
         f"<td>{_e(r['primary_name'])}</td><td>{_e(r['matched_alias'])}</td><td>{_e(r['source_label'])} {_e(r['source_id'])}</td>"
@@ -87,15 +104,19 @@ def render(rec: dict, decisions: list, lang: str = "pl") -> str:
         f"<td class='url'><a href='{_e(r['url'])}'>{_e(r['url'][:60])}</a></td></tr>"
         for r in shown)
 
+    below_rows = "".join(
+        f"<tr><td class='num'>{r['score']:.0f}</td><td>{_e(r['primary_name'])}</td><td>{_e(r['matched_alias'])}</td>"
+        f"<td>{_e(r['source_label'])} {_e(r['source_id'])}</td></tr>" for r in below)
     why = ""
     for r in shown[:5]:
         ex = r["explanation"]
         toks = "".join(
             f"<tr><td>{_e(x['query_token'])}{' (' + t['surname'] + ')' if x.get('is_surname') else ''}</td>"
-            f"<td>{_e(x.get('variant') or '—')}</td><td>{_e(', '.join(x.get('systems') or []))}</td>"
+            f"<td>{_e(x.get('variant') or '—')}</td><td>{_e(', '.join(_sys(c, lang) for c in x.get('system_codes') or []))}</td>"
             f"<td>{_e(x.get('alias_token') or '—')}</td><td class='num'>{x['similarity']:.0f}</td></tr>"
             for x in ex["tokens"])
-        factors = "".join(f"<li>{_e(f['text'])} ({f['effect']:+d})</li>" for f in ex.get("factors", []))
+        factors = "".join(f"<li>{_e(f.get('text_en') if lang == 'en' else f['text'])} ({f['effect']:+d})</li>"
+                          for f in ex.get("factors", []))
         why += (f"<div class='why'><h4>{_e(r['primary_name'])} — {_e(r['source_label'])} · {r['score']:.0f}</h4>"
                 f"<table><tr><th>{t['token']}</th><th>{t['variant']}</th><th>{t['system']}</th><th>{t['alias']}</th>"
                 f"<th>{t['sim']}</th></tr>{toks}</table>"
@@ -126,7 +147,10 @@ def render(rec: dict, decisions: list, lang: str = "pl") -> str:
 
 <section><h2>{t['variants']}</h2><ul class="examples">{examples}</ul><ul class="small">{per_token}</ul></section>
 
-<section><h2>{t['results']}</h2>{f"<table><tr><th>{t['score']}</th><th>{t['status']}</th><th>{t['listed']}</th><th>{t['alias']}</th><th>{t['src']}</th><th>{t['program']}</th><th>{t['dob']}</th><th>{t['link']}</th></tr>{rows}</table>" if rows else f"<p>{t['none']}</p>"}</section>
+<section class="rec {level}"><b>{t['rec']}:</b> {t['rec_' + level]}</section>
+
+<section><h2>{t['results']}</h2>{f"<table><tr><th>{t['score']}</th><th>{t['status']}</th><th>{t['listed']}</th><th>{t['alias']}</th><th>{t['src']}</th><th>{t['program']}</th><th>{t['dob']}</th><th>{t['link']}</th></tr>{rows}</table>" if rows else f"<p>{t['none']}</p>"}
+{f"<p class='muted'>{t['below']}:</p><table class='small'><tr><th>{t['score']}</th><th>{t['listed']}</th><th>{t['alias']}</th><th>{t['src']}</th></tr>{below_rows}</table>" if below_rows else ""}</section>
 
 {f"<section><h2>{t['why']}</h2>{why}</section>" if why else ""}
 
